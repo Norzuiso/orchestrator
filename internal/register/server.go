@@ -2,52 +2,65 @@ package register
 
 import (
 	"context"
+	"log"
 	"sync"
 
-	registerv1 "github.com/Norzuiso/protocol/gen/go/orchestrator/v1"
-	"github.com/google/uuid"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
 )
 
-type Server struct {
-	registerv1.UnimplementedRegistryServiceServer
-	mu       sync.Mutex
-	services map[string]Service
+type Connection struct {
+	pb.UnimplementedBroadcastServer
+	stream             pb.Broadcast_CreateStreamServer
+	id                 string
+	error              chan error
+	ServiceConnections []string
 }
 
-type Service struct {
-	Id       uuid.UUID
-	Name     string
-	Endpoint string
-	Category string
+type Pool struct {
+	pb.UnimplementedBroadcastServer
+	Connection map[string]*Connection
 }
 
-func NewServer() *Server {
-	return &Server{services: make(map[string]Service)}
+func (p *Pool) CreateStream(pconn *pb.Connect, stream pb.Broadcast_CreateStreamServer) error {
+	serviceConnections := pconn.UserConnectionIds
+
+	conn := &Connection{
+		stream:             stream,
+		error:              make(chan error),
+		ServiceConnections: serviceConnections,
+		id:                 pconn.User.Id,
+	}
+	p.Connection[pconn.User.Id] = conn
+	return <-conn.error
 }
 
-func (s *Server) Register(ctx context.Context, req *registerv1.RegistryRequest) (*registerv1.RegistryResponse, error) {
-	if req.Endpoint == "" {
-		return nil, status.Error(codes.InvalidArgument, "Endpoint should not be empty")
-	}
-	newUuid, err := uuid.NewUUID()
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Error generating service id")
-	}
+func SendMsg(ReceiverId string, SenderId string, msg *pb.Message, conn *Connection) (*pb.Close, error) {
+	wait := sync.WaitGroup{}
+	done := make(chan int)
+	log.Printf("Se esta mandando a: %v desde: %v\n", ReceiverId, SenderId)
+	wait.Add(1)
+	go func(msg *pb.Message, conn *Connection) {
+		defer wait.Done()
+		err := conn.stream.SendMsg(msg)
+		if err != nil {
+			log.Printf("Error with Stream: %v - Error: %v\n", conn.stream, err)
+			conn.error <- err
+		}
+	}(msg, conn)
+	go func() {
+		wait.Wait()
+		close(done)
+	}()
+	<-done
+	return &pb.Close{}, nil
+}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (p *Pool) BroadcastMessage(ctx context.Context, msg *pb.Message) (*pb.Close, error) {
+	sendConn := p.Connection[msg.SenderId]
 
-	if _, ok := s.services[req.Endpoint]; ok {
-		return nil, status.Errorf(codes.InvalidArgument, "Endpoint should be unique. %s is already register", req.Endpoint)
+	for _, connId := range sendConn.ServiceConnections {
+		conn := p.Connection[connId]
+		SendMsg(connId, msg.SenderId, msg, conn)
 	}
-
-	s.services[req.Endpoint] = Service{
-		Id:       newUuid,
-		Name:     req.Name,
-		Endpoint: req.Endpoint,
-		Category: req.Category,
-	}
-	return &registerv1.RegistryResponse{ResponseMessage: "Service register"}, nil
+	return &pb.Close{}, nil
 }
