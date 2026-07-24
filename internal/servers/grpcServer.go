@@ -5,17 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"sync"
 
-	"github.com/Norzuiso/orchestrator/internal/orquestrator"
+	"github.com/Norzuiso/orchestrator/internal/orchestrator"
 	register "github.com/Norzuiso/orchestrator/internal/register"
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
+	"google.golang.org/grpc/peer"
 )
 
 type Connection struct {
-	stream     pb.Broadcast_ClientToClientMessageServer
-	msgHandler *register.MsgHandler
+	Stream     pb.Broadcast_ClientToClientMessageServer
+	MsgHandler *register.MsgHandler
 	error      chan error
 }
 
@@ -25,16 +27,16 @@ type ClientToClientService struct {
 	ActiveClients             map[int64]*pb.Client
 	ClientStreams             map[int64]*Connection
 	ClientToClientConnections map[int64][]int64
-	Orquestrator              *orquestrator.Orquestrator
+	Orchestrator              *orchestrator.Orchestrator
 }
 
-func NewClientToClientService(seed int64, orquestrator *orquestrator.Orquestrator) *ClientToClientService {
+func NewClientToClientService(seed int64, orchestrator *orchestrator.Orchestrator) *ClientToClientService {
 	return &ClientToClientService{
 		Seed:                      seed,
 		ActiveClients:             make(map[int64]*pb.Client),
 		ClientStreams:             make(map[int64]*Connection),
 		ClientToClientConnections: make(map[int64][]int64),
-		Orquestrator:              orquestrator,
+		Orchestrator:              orchestrator,
 	}
 }
 
@@ -102,33 +104,38 @@ func (cs *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Clien
 			}
 			msgHandler := register.NewMessageHandler(msg, stream)
 			msgType := msgHandler.GetMessageType()
-			if !cs.Orquestrator.GetPhase().IsMsgTypeAllowIt(&msgType) {
-				msgHandler.SendPhaseError("Current orquestrator phase: " + cs.Orquestrator.GetPhase().String() + " only allows msg type:")
-			} else {
-				/*
-					if "Orquestrator.phase" == "WAITING_CONNECTIONS" {
-						return fmt.Errorf("Error porque no estas en la phase correcta")
-					}
 
-
-				*/
-				sender := msgHandler.SenderId
-				if _, ok := cs.ClientStreams[sender]; !ok {
-					cs.ClientStreams[sender] = &Connection{stream: stream, msgHandler: msgHandler}
-				}
-
-				if _, ok := cs.ClientToClientConnections[sender]; !ok {
-					msgHandler.SendError(errors.New("Client doesn't have connections"))
-				}
-				for _, toId := range cs.ClientToClientConnections[sender] {
-					if _, ok := cs.ClientStreams[toId]; !ok {
-						msgHandler.SendError(fmt.Errorf("Client: %d is not an active client or doesnt exist", toId))
-					} else {
-						cs.ClientStreams[toId].msgHandler.SendMsgContent(msgHandler.Content)
-					}
-
-				}
+			if !cs.Orchestrator.GetPhase().IsMsgTypeAllowIt(msgType) {
+				msgHandler.SendPhaseError(fmt.Sprintf("Current orchestrator phase: %v only allows msg type: %v", cs.Orchestrator.GetPhase().String(), cs.Orchestrator.GetPhase().GetAllowMsgTypeStr()))
+				continue
 			}
+
+			/*===================	CHECK	====================*/
+			//	This code get the address from the client - We could use this to store information from the client
+			log.Println(cs.Orchestrator.CurrentPhase.GetName())
+			if cs.Orchestrator.GetPhase().IsWaitingConnection() {
+				p, _ := peer.FromContext(stream.Context())
+				msgHandler.SendMsgContent(p.Addr.String())
+			}
+			/*==================================================*/
+
+			sender := msgHandler.SenderId
+			if _, ok := cs.ClientStreams[sender]; !ok {
+				cs.ClientStreams[sender] = &Connection{Stream: stream, MsgHandler: msgHandler}
+			}
+
+			if _, ok := cs.ClientToClientConnections[sender]; !ok {
+				msgHandler.SendError(errors.New("Client doesn't have connections"))
+			}
+			for _, toId := range cs.ClientToClientConnections[sender] {
+				if _, ok := cs.ClientStreams[toId]; !ok {
+					msgHandler.SendError(fmt.Errorf("Client: %d is not an active client or doesnt exist", toId))
+				} else {
+					cs.ClientStreams[toId].MsgHandler.SendMsgContent(msgHandler.Content)
+				}
+
+			}
+
 		}
 	}(stream)
 	go func() {
