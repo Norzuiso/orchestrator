@@ -13,6 +13,7 @@ import (
 
 	"github.com/Norzuiso/orchestrator/internal/orchestrator"
 	"github.com/Norzuiso/orchestrator/internal/servers"
+	"github.com/Norzuiso/orchestrator/internal/utils"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"google.golang.org/grpc"
 )
@@ -20,6 +21,47 @@ import (
 type SimulationEngine struct {
 	GrpcServer   *servers.ClientToClientService
 	Orchestrator *orchestrator.Orchestrator
+
+	StateAwaitingClientStatus   utils.State
+	StateAwaitingEventResponses utils.State
+	StateCollectingEvents       utils.State
+	StateDispatchingEvents      utils.State
+	StateFinishing              utils.State
+	StatePaused                 utils.State
+	StateRequestingClientStatus utils.State
+	StateRequestingEvents       utils.State
+	StateStoringClientStatus    utils.State
+	StateWaitingConnections     utils.State
+
+	currentState utils.State
+}
+
+func NewSimulationEngine(orchestrator *orchestrator.Orchestrator,
+	clientToClientService *servers.ClientToClientService) *SimulationEngine {
+	s := &SimulationEngine{
+		GrpcServer:   clientToClientService,
+		Orchestrator: orchestrator,
+	}
+
+	stateWaitingconnections := NewStateWaitingConnections(s)
+
+	s.SetState(stateWaitingconnections)
+	s.StateWaitingConnections = stateWaitingconnections
+	s.StateAwaitingClientStatus = NewStateAwaitingClientStatus(s)
+	s.StateAwaitingEventResponses = NewStateAwaitingClientStatus(s)
+	s.StateCollectingEvents = NewStateCollectingEvents(s)
+	s.StateDispatchingEvents = NewStateDispatchingEvents(s)
+	s.StateFinishing = NewStateFinishing(s)
+	s.StatePaused = NewStatePaused(s)
+	s.StateRequestingClientStatus = NewStateRequestingClientStatus(s)
+	s.StateRequestingEvents = NewStateRequestingEvents(s)
+	s.StateStoringClientStatus = NewStateStoringClientStatus(s)
+
+	return s
+}
+
+func (s *SimulationEngine) SetState(state utils.State) {
+	s.currentState = state
 }
 
 func (s *SimulationEngine) GrpcConnect() {
@@ -39,8 +81,7 @@ func (s *SimulationEngine) GrpcConnect() {
 	// grpc.ChainUnaryInterceptor(logging.UnaryServerInterceptor(interceptorLogger(logger), opts...)),
 	// grpc.StatsHandler(&register.StatsHandler{}),
 	)
-	// Creation of grpc server
-	s.GrpcServer = servers.NewClientToClientService(1001, s.Orchestrator) // TODO - Change the seed value to get it from config
+
 	pb.RegisterBroadcastServer(grpcServer, s.GrpcServer)
 
 	// run server
@@ -84,8 +125,10 @@ func StartSimulationEnine() {
 
 	// Orchestrator
 	orchestrator := orchestrator.NewOrquestrator()
+	clientToClientService := servers.NewClientToClientService(1001, orchestrator) // TODO - Change the seed value to get it from config
 
-	se := &SimulationEngine{Orchestrator: orchestrator}
+	se := NewSimulationEngine(orchestrator, clientToClientService)
+
 	se.Orchestrator.NextEpoch()
 
 	wg := sync.WaitGroup{}
