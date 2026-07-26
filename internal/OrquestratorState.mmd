@@ -1,0 +1,15 @@
+---
+config:
+  layout: elk
+---
+stateDiagram
+  direction TB
+  [*] --> WaitConnections
+  WaitConnections --> WaitConnections
+  WaitConnections --> RequestEvents
+  RequestEvents --> ReadEvents
+  ReadEvents --> SendEvents
+  SendEvents --> RecolectStatus
+  RecolectStatus --> RegisterStatus
+  RegisterStatus --> RequestEvents
+  RegisterStatus --> [*]
