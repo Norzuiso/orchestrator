@@ -86,6 +86,9 @@ func (c *ClientToClientService) validateFirstMsg(msg *pb.Message) error {
 	if c.State.GetStateName() != utils.WaitingConnectionsStr {
 		return fmt.Errorf("Simulator is not accepting new connections.")
 	}
+	return c.validateMsgTypeOnState(msg)
+}
+func (c *ClientToClientService) validateMsgTypeOnState(msg *pb.Message) error {
 	// check if msgType is allow it
 	if !c.State.IsMsgTypeAllowIt(msg) {
 		return fmt.Errorf("MessageType: %v:%v is not allow it", msg.MessageType.String(), msg.MessageType.Number())
@@ -118,6 +121,11 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 				errCh <- err
 				return
 			}
+
+			if err := c.validateMsgTypeOnState(msg); err != nil {
+				c.State.SendMsg(utils.BuildPhaseErrorMsg(msg, err), conn)
+			}
+
 			if err = c.State.ReadMsg(msg, c.ClientStreams[senderId]); err != nil {
 				errCh <- err
 				return
