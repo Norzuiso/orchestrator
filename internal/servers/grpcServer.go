@@ -4,37 +4,29 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log"
 	"strconv"
-	"sync"
 
+	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/orchestrator"
-	register "github.com/Norzuiso/orchestrator/internal/register"
+	"github.com/Norzuiso/orchestrator/internal/utils"
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
-	"google.golang.org/grpc/peer"
 )
-
-type Connection struct {
-	Stream     pb.Broadcast_ClientToClientMessageServer
-	MsgHandler *register.MsgHandler
-	error      chan error
-}
 
 type ClientToClientService struct {
 	pb.UnimplementedBroadcastServer
 	Seed                      int64
 	ActiveClients             map[int64]*pb.Client
-	ClientStreams             map[int64]*Connection
+	ClientStreams             map[int64]*models.Connection
 	ClientToClientConnections map[int64][]int64
 	Orchestrator              *orchestrator.Orchestrator
+	State                     utils.State
 }
 
 func NewClientToClientService(seed int64, orchestrator *orchestrator.Orchestrator) *ClientToClientService {
 	return &ClientToClientService{
 		Seed:                      seed,
 		ActiveClients:             make(map[int64]*pb.Client),
-		ClientStreams:             make(map[int64]*Connection),
+		ClientStreams:             make(map[int64]*models.Connection),
 		ClientToClientConnections: make(map[int64][]int64),
 		Orchestrator:              orchestrator,
 	}
@@ -81,67 +73,69 @@ func (cs *ClientToClientService) RegisterConnection(ctx context.Context, req *pb
 	return res, nil
 }
 
-func (cs *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_ClientToClientMessageServer) error {
-	wait := sync.WaitGroup{}
-	done := make(chan int)
-	wait.Add(1)
-	go func(stream pb.Broadcast_ClientToClientMessageServer) {
+func (c *ClientToClientService) validateFirstMsg(msg *pb.Message) error {
+	senderId := msg.GetSenderId()
+	if senderId == 0 {
+		return fmt.Errorf("SenderId cannot be 0.")
+	}
+	// Check if senderId exists on ClientStreams.
+	if _, ok := c.ClientStreams[senderId]; ok {
+		return fmt.Errorf("Client %v already has an open stream.", senderId)
+	}
+	// Check if the Simulator state is WaitingConnections and if the msgType is allowit
+	if c.State.GetStateName() != utils.WaitingConnectionsStr {
+		return fmt.Errorf("Simulator is not accepting new connections.")
+	}
+	// check if msgType is allow it
+	if !c.State.IsMsgTypeAllowIt(msg) {
+		return fmt.Errorf("MessageType: %v:%v is not allow it", msg.MessageType.String(), msg.MessageType.Number())
+	}
+	return nil
+}
+
+func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_ClientToClientMessageServer) error {
+
+	// Read first msg
+	msg, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+	if err := c.validateFirstMsg(msg); err != nil {
+		return err
+	}
+
+	senderId := msg.GetSenderId()
+
+	conn := &models.Connection{Stream: stream, Outbox: make(chan *pb.Message, 10)}
+	c.ClientStreams[senderId] = conn
+
+	errCh := make(chan error, 1)
+	// READ MESSAGE
+	go func() {
 		for {
-
-			/*
-				For each open stream (client)
-					1. Read message
-					2. Get MessageType
-					3. Check if MessageType is allow it on the current ORQUESTRATOR phase
-					4. Apply the phase behivor on the Message
-
-			*/
-
-			// READ MESSAGE
-			msg, err := stream.Recv()
-			if err == io.EOF || err != nil {
+			msg, err := stream.Recv() // This function block until we get a new msg
+			if err != nil {
+				errCh <- err
 				return
 			}
-			msgHandler := register.NewMessageHandler(msg, stream)
-			msgType := msgHandler.GetMessageType()
-
-			if !cs.Orchestrator.GetPhase().IsMsgTypeAllowIt(msgType) {
-				msgHandler.SendPhaseError(fmt.Sprintf("Current orchestrator phase: %v only allows msg type: %v", cs.Orchestrator.GetPhase().String(), cs.Orchestrator.GetPhase().GetAllowMsgTypeStr()))
-				continue
+			if err = c.State.ReadMsg(msg, c.ClientStreams[senderId]); err != nil {
+				errCh <- err
+				return
 			}
-
-			/*===================	CHECK	====================*/
-			//	This code get the address from the client - We could use this to store information from the client
-			log.Println(cs.Orchestrator.CurrentPhase.GetName())
-			if cs.Orchestrator.GetPhase().IsWaitingConnection() {
-				p, _ := peer.FromContext(stream.Context())
-				msgHandler.SendMsgContent(p.Addr.String())
-			}
-			/*==================================================*/
-
-			sender := msgHandler.SenderId
-			if _, ok := cs.ClientStreams[sender]; !ok {
-				cs.ClientStreams[sender] = &Connection{Stream: stream, MsgHandler: msgHandler}
-			}
-
-			if _, ok := cs.ClientToClientConnections[sender]; !ok {
-				msgHandler.SendError(errors.New("Client doesn't have connections"))
-			}
-			for _, toId := range cs.ClientToClientConnections[sender] {
-				if _, ok := cs.ClientStreams[toId]; !ok {
-					msgHandler.SendError(fmt.Errorf("Client: %d is not an active client or doesnt exist", toId))
-				} else {
-					cs.ClientStreams[toId].MsgHandler.SendMsgContent(msgHandler.Content)
-				}
-
-			}
-
 		}
-	}(stream)
-	go func() {
-		wait.Wait()
-		close(done)
 	}()
-	<-done
+
+	// Send msg to client
+	go func() {
+		clientConnection := c.ClientStreams[senderId]
+		for msgQueue := range clientConnection.Outbox {
+			err := stream.Send(msgQueue)
+			if err != nil {
+				errCh <- err
+				return
+			}
+		}
+	}()
+	<-errCh
 	return nil
 }

@@ -37,8 +37,8 @@ func (s *SimulationEngine) SendMsgToClient(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	rMsg := rBody.Msg.MsgRequestToMessage(s.Orchestrator.Epoch, 0)
-	client.MsgHandler.SendMsg(rMsg)
+	// rMsg := rBody.Msg.MsgRequestToMessage(s.Orchestrator.Epoch, 0)
+	// client.MsgHandler.SendMsg(rMsg)
 
 	w.Header().Set("Content-type", "pkgplication/json")
 	w.WriteHeader(http.StatusOK)
@@ -50,13 +50,13 @@ func (s *SimulationEngine) SendMsgToAllClients(w http.ResponseWriter, req *http.
 
 	utils.ParseBody(req, rBody)
 
-	for _, client := range s.GrpcServer.ClientStreams {
-		rMsg := rBody.Msg.MsgRequestToMessage(s.Orchestrator.Epoch, 0)
-		err := client.MsgHandler.SendMsg(rMsg)
-		if err != nil {
-			fmt.Fprintf(w, "Error on client: %v.\nerror:%v", client, err)
-		}
-	}
+	// for _, client := range s.GrpcServer.ClientStreams {
+	// 	rMsg := rBody.Msg.MsgRequestToMessage(s.Orchestrator.Epoch, 0)
+	// 	err := client.MsgHandler.SendMsg(rMsg)
+	// 	if err != nil {
+	// 		fmt.Fprintf(w, "Error on client: %v.\nerror:%v", client, err)
+	// 	}
+	// }
 	w.Header().Set("Content-type", "pkgplication/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w, "Msg send it")
@@ -66,17 +66,17 @@ func (s *SimulationEngine) SendMsgToClientsList(w http.ResponseWriter, req *http
 	rBody := &models.MsgToClientsList{}
 	utils.ParseBody(req, rBody)
 
-	for _, rClient := range rBody.ClientIds {
-		client, ok := s.GrpcServer.ClientStreams[rClient]
-		if !ok {
-			continue
-		}
-		rMsg := rBody.Msg.MsgRequestToMessage(s.Orchestrator.Epoch, 0)
-		err := client.MsgHandler.SendMsg(rMsg)
-		if err != nil {
-			fmt.Fprintf(w, "Error on client: %v.\nerror:%v", client, err)
-		}
-	}
+	// for _, rClient := range rBody.ClientIds {
+	// 	client, ok := s.GrpcServer.ClientStreams[rClient]
+	// 	if !ok {
+	// 		continue
+	// 	}
+	// 	rMsg := rBody.Msg.MsgRequestToMessage(s.Orchestrator.Epoch, 0)
+	// 	err := client.MsgHandler.SendMsg(rMsg)
+	// 	if err != nil {
+	// 		fmt.Fprintf(w, "Error on client: %v.\nerror:%v", client, err)
+	// 	}
+	// }
 	w.Header().Set("Content-type", "pkgplication/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w, "Msg send it")

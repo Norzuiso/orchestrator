@@ -47,21 +47,26 @@ func NewSimulationEngine(orchestrator *orchestrator.Orchestrator,
 
 	s.SetState(stateWaitingconnections)
 	s.StateWaitingConnections = stateWaitingconnections
-	s.StateAwaitingClientStatus = NewStateAwaitingClientStatus(s)
-	s.StateAwaitingEventResponses = NewStateAwaitingClientStatus(s)
-	s.StateCollectingEvents = NewStateCollectingEvents(s)
-	s.StateDispatchingEvents = NewStateDispatchingEvents(s)
-	s.StateFinishing = NewStateFinishing(s)
-	s.StatePaused = NewStatePaused(s)
-	s.StateRequestingClientStatus = NewStateRequestingClientStatus(s)
-	s.StateRequestingEvents = NewStateRequestingEvents(s)
-	s.StateStoringClientStatus = NewStateStoringClientStatus(s)
+
+	// TODO - First make it work on WaitingConnection
+	//==============================================================
+	// s.StateAwaitingClientStatus = NewStateAwaitingClientStatus(s)
+	// s.StateAwaitingEventResponses = NewStateAwaitingClientStatus(s)
+	// s.StateCollectingEvents = NewStateCollectingEvents(s)
+	// s.StateDispatchingEvents = NewStateDispatchingEvents(s)
+	// s.StateFinishing = NewStateFinishing(s)
+	// s.StatePaused = NewStatePaused(s)
+	// s.StateRequestingClientStatus = NewStateRequestingClientStatus(s)
+	// s.StateRequestingEvents = NewStateRequestingEvents(s)
+	// s.StateStoringClientStatus = NewStateStoringClientStatus(s)
+	//==============================================================
 
 	return s
 }
 
 func (s *SimulationEngine) SetState(state utils.State) {
 	s.currentState = state
+	s.GrpcServer.State = s.currentState
 }
 
 func (s *SimulationEngine) GrpcConnect() {
@@ -128,7 +133,7 @@ func StartSimulationEnine() {
 	clientToClientService := servers.NewClientToClientService(1001, orchestrator) // TODO - Change the seed value to get it from config
 
 	se := NewSimulationEngine(orchestrator, clientToClientService)
-
+	se.GrpcServer.State = se.currentState
 	se.Orchestrator.NextEpoch()
 
 	wg := sync.WaitGroup{}
