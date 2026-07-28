@@ -7,7 +7,8 @@ import (
 
 // Orchestrator
 func (s *SimulationEngine) StartSimulation(w http.ResponseWriter, req *http.Request) {
-	s.Orchestrator.StartSimualtion()
+	nextState, _ := s.currentState.NextState()
+	s.SetState(nextState)
 	fmt.Fprintf(w, "Simulation started.")
 }
 

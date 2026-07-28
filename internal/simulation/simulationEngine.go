@@ -67,6 +67,7 @@ func NewSimulationEngine(orchestrator *orchestrator.Orchestrator,
 func (s *SimulationEngine) SetState(state utils.State) {
 	s.currentState = state
 	s.GrpcServer.State = s.currentState
+	log.Println(s.currentState.GetStateName())
 }
 
 func (s *SimulationEngine) GrpcConnect() {

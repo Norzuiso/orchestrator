@@ -30,7 +30,9 @@ func (s *StateWaitingConnections) SendMsg(msg *pb.Message, conn *models.Connecti
 }
 
 func (s *StateWaitingConnections) NextState() (utils.State, error) {
-	return NewStateRequestingEvents(s.SimulationEngine), nil
+	nextState := NewStateRequestingEvents(s.SimulationEngine)
+	nextState.SendMsg(nil, nil)
+	return nextState, nil
 }
 
 func (s *StateWaitingConnections) IsMsgTypeAllowIt(msg *pb.Message) bool {
