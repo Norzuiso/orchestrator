@@ -1,8 +1,6 @@
 package simulation
 
 import (
-	"fmt"
-
 	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/utils"
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
@@ -17,8 +15,7 @@ func (w *StateRequestingEvents) GetStateName() string {
 }
 
 func (w *StateRequestingEvents) ReadMsg(msg *pb.Message, conn *models.Connection) error {
-	utils.BuildErrorMsg(msg, fmt.Errorf("Message not allow it. Orchestrator is not reciving any message"))
-	conn.Outbox <- msg
+	conn.Outbox <- utils.BuildNoAllowMsgErrorMsg(msg)
 	return nil
 }
 
@@ -31,14 +28,16 @@ func (w *StateRequestingEvents) SendMsg(msg *pb.Message, conn *models.Connection
 		Content:     "",
 	}
 
-	for _, client := range clientStreams {
+	for id, client := range clientStreams {
+		w.SimulationEngine.Orchestrator.ClientEventsRequest = append(w.SimulationEngine.Orchestrator.ClientEventsRequest, id)
 		client.Outbox <- requestMsg
 	}
+	w.SimulationEngine.NextState()
 	return nil
 }
 
 func (w *StateRequestingEvents) NextState() (utils.State, error) {
-	return NewStateAwaitingEventResponses(w.SimulationEngine), nil
+	return NewStateCollectingEvents(w.SimulationEngine), nil
 }
 
 func (w *StateRequestingEvents) IsMsgTypeAllowIt(msg *pb.Message) bool {

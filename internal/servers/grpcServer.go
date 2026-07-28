@@ -14,29 +14,24 @@ import (
 
 type ClientToClientService struct {
 	pb.UnimplementedBroadcastServer
-	Seed                      int64
-	ActiveClients             map[int64]*pb.Client
-	ClientStreams             map[int64]*models.Connection
-	ClientToClientConnections map[int64][]int64
-	Orchestrator              *orchestrator.Orchestrator
-	State                     utils.State
+
+	ClientStreams map[int64]*models.Connection
+	Orchestrator  *orchestrator.Orchestrator
+
+	State utils.State
 }
 
-func NewClientToClientService(seed int64, orchestrator *orchestrator.Orchestrator) *ClientToClientService {
+func NewClientToClientService(orchestrator *orchestrator.Orchestrator) *ClientToClientService {
 	return &ClientToClientService{
-		Seed:                      seed,
-		ActiveClients:             make(map[int64]*pb.Client),
-		ClientStreams:             make(map[int64]*models.Connection),
-		ClientToClientConnections: make(map[int64][]int64),
-		Orchestrator:              orchestrator,
+		ClientStreams: make(map[int64]*models.Connection),
 	}
 }
 
-func (cs *ClientToClientService) ConnectClient(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
+func (c *ClientToClientService) ConnectClient(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	client := req.GetClient()
 
 	if client.GetId() == 0 {
-		client.Id = int64(len(cs.ActiveClients) + 1)
+		client.Id = int64(len(c.Orchestrator.ActiveClients) + 1)
 	}
 
 	if client.GetName() == "" {
@@ -44,29 +39,29 @@ func (cs *ClientToClientService) ConnectClient(ctx context.Context, req *pb.Conn
 	}
 
 	if client.GetSeed() == 0 {
-		strResult := strconv.Itoa(int(cs.Seed)) + strconv.Itoa(int(client.GetId()))
+		strResult := strconv.Itoa(int(c.Orchestrator.Seed)) + strconv.Itoa(int(client.GetId()))
 		newSeed, _ := strconv.Atoi(strResult)
 		client.Seed = int64(newSeed)
 	}
 
-	cs.ActiveClients[client.Id] = client
-	cs.ClientToClientConnections[client.Id] = make([]int64, 0)
+	c.Orchestrator.ActiveClients[client.Id] = client
+	c.Orchestrator.ClientToClientConnections[client.Id] = make([]int64, 0)
 
 	res := &pb.ConnectionResponse{Client: client}
 
 	return res, nil
 }
 
-func (cs *ClientToClientService) RegisterConnection(ctx context.Context, req *pb.RegisterConnectionRequest) (*pb.RegisterConnectionResponse, error) {
-	if _, ok := cs.ActiveClients[req.FromId]; !ok {
+func (c *ClientToClientService) RegisterConnection(ctx context.Context, req *pb.RegisterConnectionRequest) (*pb.RegisterConnectionResponse, error) {
+	if _, ok := c.Orchestrator.ActiveClients[req.FromId]; !ok {
 		return nil, errors.New("Client not foud on active clients")
 	}
-	if _, ok := cs.ClientToClientConnections[req.FromId]; !ok {
+	if _, ok := c.Orchestrator.ClientToClientConnections[req.FromId]; !ok {
 		return nil, errors.New("Client not foud on cliet to client connections clients")
 	}
 
 	// In the future we are going to validate if the clients from toId exist in ActiveClients
-	cs.ClientToClientConnections[req.FromId] = append(cs.ClientToClientConnections[req.FromId], req.GetToId()...)
+	c.Orchestrator.ClientToClientConnections[req.FromId] = append(c.Orchestrator.ClientToClientConnections[req.FromId], req.GetToId()...)
 
 	res := &pb.RegisterConnectionResponse{Response: "Connections created"}
 
@@ -123,12 +118,12 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 			}
 
 			if err := c.validateMsgTypeOnState(msg); err != nil {
-				c.State.SendMsg(utils.BuildPhaseErrorMsg(msg, err), conn)
+				conn.Outbox <- utils.BuildPhaseErrorMsg(msg, err)
+				continue
 			}
 
 			if err = c.State.ReadMsg(msg, c.ClientStreams[senderId]); err != nil {
-				errCh <- err
-				return
+				conn.Outbox <- utils.BuildErrorMsg(msg, err)
 			}
 		}
 	}()

@@ -17,16 +17,13 @@ func (s *SimulationEngine) StopSimulation(w http.ResponseWriter, req *http.Reque
 	fmt.Fprintf(w, "Simulation stopped on \n\t epoch: \t%v \n\tphase:\t%v\n\t.", s.Orchestrator.Epoch, s.currentState.GetStateName())
 }
 
-func (s *SimulationEngine) NextPhase(w http.ResponseWriter, req *http.Request) {
-	oldState := s.currentState.GetStateName()
-	nextState, err := s.currentState.NextState()
+func (s *SimulationEngine) NextStateHttp(w http.ResponseWriter, req *http.Request) {
+	newState, err := s.NextState()
 	if err != nil {
-		fmt.Fprintf(w, "Error  %v", err)
+		fmt.Fprintf(w, "%v", err)
 	}
-	s.SetState(nextState)
-	newState := nextState.GetStateName()
 
-	fmt.Fprintf(w, "Phase updated. From: %v To: %v", oldState, newState)
+	fmt.Fprintf(w, "Phase updated. From: %v", newState)
 }
 
 func (s *SimulationEngine) NextEpoch(w http.ResponseWriter, req *http.Request) {

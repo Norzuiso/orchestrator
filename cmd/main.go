@@ -21,10 +21,22 @@ TODO
 4. Http function to send content msg to specific client
 4.1. Http function to send content msg to specific list of clients
 
+10. Orchestrator function to do what each phase its supose to be doing
+10.0. Implement state pattern to orchestrator
+10.1. WaitConnections
+10.2. RequestEvents
+10.3. RecolectEvent
+10.4. ApplyEvent
+10.5. RequestClientStatus
+10.6. StoringClientStatus
+10.7. Pause
+
 
 13. Http function to next epoch
 14. Http function to next phase
 ==================================================
+==================================================
+
 
 5. Http function to change orchestrator phase
 5.1. Change phase will go to the next phase. But, should we add a function to change into an specific function?
@@ -40,18 +52,6 @@ TODO
 9. Http function to get client to client connection by ClientId
 ==================================================
 
-10. Orchestrator function to do what each phase its supose to be doing
-10.0. Implement state pattern to orchestrator
-10.1. WaitConnections
-10.2. RequestEvents
-10.3. RecolectEvent
-10.4. ApplyEvent
-10.5. RequestClientStatus
-10.6. StoringClientStatus
-10.7. Pause
-
-
-
 11. Implement an persistent way to store the connections and clients
 11.1. Store client id, client address, name, description, seed
 11.2. Store client status that needs to be any since each client has individual business logic
@@ -60,6 +60,14 @@ TODO
 12. Http function to end simulation
 12.1. This should return a file with the status for each epoch or just the path or something more like a general summary?
 
+15. Create function to bump seed by epoch
+
+16. Check english gramar
+16.1. Check responses
+16.2. Check error msgs
+16.3. Check packages, files, functions, var names
+
+17.
 ==================================================
 NOTES:
 ==================================================
@@ -87,5 +95,21 @@ RequestEvents =
 RecolectStatus =
 	Client send: 	MESSAGE_TYPE_SEND_EVENTS =  Rejected.
 												Message type not allow it in phase RecolectStatus
+
+==================================================
+STATE FLOW
+==================================================
+	WaitingConnectionsStr->RequestingEventsStr
+	RequestingEventsStr->DispatchingEventsStr
+
+
+
+
+	CollectingEventsStr
+	RequestingClientStatusStr
+	AwaitingClientStatusStr
+	StoringClientStatusStr
+	FinishingStr
+	PausedStr
 
 **/

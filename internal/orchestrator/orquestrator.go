@@ -1,11 +1,17 @@
 package orchestrator
 
+import (
+	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
+)
+
 type Orchestrator struct {
+	Seed  int64
 	Epoch float32
 
-	conectedClients int // 10
-	doneClients     int // 4
-	pendingClients  int // 6
+	ActiveClients             map[int64]*pb.Client
+	ClientToClientConnections map[int64][]int64
+	ClientEventsResponse      map[int64]*pb.Message
+	ClientEventsRequest       []int64
 }
 
 func NewOrquestrator() *Orchestrator {

@@ -36,6 +36,15 @@ type SimulationEngine struct {
 	currentState utils.State
 }
 
+func (s *SimulationEngine) NextState() (utils.State, error) {
+	nextState, err := s.currentState.NextState()
+	if err != nil {
+		return nil, err
+	}
+	s.SetState(nextState)
+	return s.currentState, nil
+}
+
 func NewSimulationEngine(orchestrator *orchestrator.Orchestrator,
 	clientToClientService *servers.ClientToClientService) *SimulationEngine {
 	s := &SimulationEngine{
@@ -113,7 +122,7 @@ func (s *SimulationEngine) HttpConnect() {
 	http.HandleFunc("GET /simulation/continue", s.StopSimulation)
 	http.HandleFunc("GET /simulation/end", s.StopSimulation)
 
-	http.HandleFunc("GET /simulation/next-phase", s.NextPhase)
+	http.HandleFunc("GET /simulation/next-phase", s.NextStateHttp)
 	http.HandleFunc("GET /simulation/next-epoch", s.NextEpoch)
 
 	err := http.ListenAndServe(":8090", nil) // TODO - Port Get it from config
@@ -131,11 +140,10 @@ func StartSimulationEnine() {
 
 	// Orchestrator
 	orchestrator := orchestrator.NewOrquestrator()
-	clientToClientService := servers.NewClientToClientService(1001, orchestrator) // TODO - Change the seed value to get it from config
+	clientToClientService := servers.NewClientToClientService(orchestrator) // TODO - Change the seed value to get it from config
 
 	se := NewSimulationEngine(orchestrator, clientToClientService)
 	se.GrpcServer.State = se.currentState
-	se.Orchestrator.NextEpoch()
 
 	wg := sync.WaitGroup{}
 
