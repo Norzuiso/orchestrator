@@ -27,7 +27,7 @@ type SimulationEngine struct {
 	StateAwaitingEventResponses utils.State
 	StateCollectingEvents       utils.State
 	StateDispatchingEvents      utils.State
-	StateFinishing              utils.State
+	StateEnd                    utils.State
 	StatePaused                 utils.State
 	StateRequestingClientStatus utils.State
 	StateRequestingEvents       utils.State
@@ -69,7 +69,7 @@ func NewSimulationEngine() *SimulationEngine {
 	s.StateAwaitingEventResponses = NewStateAwaitingEventResponses(s)
 	s.StateCollectingEvents = NewStateCollectingEvents(s)
 	s.StateDispatchingEvents = NewStateDispatchingEvents(s)
-	s.StateFinishing = NewStateFinishing(s)
+	s.StateEnd = NewStateEnd(s)
 	s.StatePaused = NewStatePaused(s)
 	s.StateRequestingClientStatus = NewStateRequestingClientStatus(s)
 	s.StateRequestingEvents = NewStateRequestingEvents(s)
@@ -112,17 +112,17 @@ func (s *SimulationEngine) GrpcConnect() {
 }
 
 func (s *SimulationEngine) HttpConnect() {
-	http.HandleFunc("POST /msg/all", s.SendMsgToAllClients)
-	http.HandleFunc("POST /msg/client", s.SendMsgToClient)
-	http.HandleFunc("POST /msg/clients/list", s.SendMsgToClientsList)
+	http.HandleFunc("POST /msg/all", s.SendMsgToAllClients)           // TODO
+	http.HandleFunc("POST /msg/client", s.SendMsgToClient)            // TODO
+	http.HandleFunc("POST /msg/clients/list", s.SendMsgToClientsList) // TODO
 
 	http.HandleFunc("POST /simulation/start", s.StartSimulation)
-	http.HandleFunc("GET /simulation/pause", s.StopSimulation)
-	http.HandleFunc("GET /simulation/continue", s.StopSimulation)
-	http.HandleFunc("GET /simulation/end", s.StopSimulation)
+	http.HandleFunc("GET /simulation/pause", s.StopSimulation) // TODO
+	http.HandleFunc("GET /simulation/state/waiting-connections", s.WaitingConnections)
+	http.HandleFunc("GET /simulation/end", s.EndSimulation)
 
-	http.HandleFunc("GET /simulation/next-phase", s.NextStateHttp)
-	http.HandleFunc("GET /simulation/next-epoch", s.NextEpoch)
+	http.HandleFunc("GET /simulation/next-phase", s.NextStateHttp) // TODO
+	http.HandleFunc("GET /simulation/next-epoch", s.NextEpoch)     // TODO
 
 	err := http.ListenAndServe(":8090", nil) // TODO - Port Get it from config
 

@@ -53,8 +53,8 @@ func (o *Orchestrator) PauseSimualtion() {
 func (o *Orchestrator) NextEpoch() {
 	o.Epoch = +1
 	o.generateSeedEpoch()
-
 }
+
 func (o *Orchestrator) generateSeedEpoch() {
 	seedStr := strconv.FormatInt(o.Seed, 10)
 	epochStr := strconv.FormatInt(o.Epoch, 10)

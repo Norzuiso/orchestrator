@@ -13,7 +13,7 @@ TODO
 ==================================================
 1. Http function to start simulation
 1.1. Check data need it to start simulation
-2. Http function to pause simulation
+2. Http function to finish simulation
 2.1. Check values need to return
 
 ===================		DONE	==================
@@ -39,7 +39,6 @@ TODO
 
 13. Http function to next epoch
 14. Http function to next phase
-==================================================
 ==================================================
 
 6. Http function to get System status

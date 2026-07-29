@@ -7,4 +7,5 @@ import (
 type Connection struct {
 	Stream pb.Broadcast_ClientToClientMessageServer
 	Outbox chan *pb.Message
+	ErrCh  chan error
 }

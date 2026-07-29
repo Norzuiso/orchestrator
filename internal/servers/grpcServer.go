@@ -108,13 +108,12 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 	conn := &models.Connection{Stream: stream, Outbox: make(chan *pb.Message, 10)}
 	c.ClientStreams[senderId] = conn
 
-	errCh := make(chan error, 1)
+	c.ClientStreams[senderId].ErrCh = make(chan error, 2)
 	// READ MESSAGE
 	go func() {
 		for {
 			msg, err := stream.Recv() // This function block until we get a new msg
 			if err != nil {
-				errCh <- err
 				return
 			}
 
@@ -135,11 +134,13 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 		for msgQueue := range clientConnection.Outbox {
 			err := stream.Send(msgQueue)
 			if err != nil {
-				errCh <- err
+				c.ClientStreams[senderId].ErrCh <- err
 				return
 			}
 		}
 	}()
-	<-errCh
+	<-c.ClientStreams[senderId].ErrCh
+	delete(c.ClientStreams, senderId)
+
 	return nil
 }
