@@ -21,6 +21,11 @@ TODO
 4. Http function to send content msg to specific client
 4.1. Http function to send content msg to specific list of clients
 
+5. Http function to change orchestrator phase. Why? The flow with state pattern works fine.
+5.1. Change phase will go to the next phase. But, should we add a function to change into an specific function? Naaa
+5.2. Possibility to create phases to allow custom behavior. No need it
+
+
 10. Orchestrator function to do what each phase its supose to be doing
 10.0. Implement state pattern to orchestrator
 10.1. WaitConnections
@@ -36,11 +41,6 @@ TODO
 14. Http function to next phase
 ==================================================
 ==================================================
-
-
-5. Http function to change orchestrator phase
-5.1. Change phase will go to the next phase. But, should we add a function to change into an specific function?
-5.2. Possibility to create phases to allow custom behavior
 
 6. Http function to get System status
 6.1. What data is need it to return?

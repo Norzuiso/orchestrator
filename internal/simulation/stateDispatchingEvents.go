@@ -27,7 +27,7 @@ func (s *StateDispatchingEvents) ReadMsg(msg *pb.Message, conn *models.Connectio
 }
 
 func (s *StateDispatchingEvents) SendMsg(msg *pb.Message, conn *models.Connection) error {
-	responses := s.SimulationEngine.Orchestrator.ClientEventsResponse
+	responses := s.SimulationEngine.Orchestrator.ClientsResponse
 	for id, msgRes := range responses {
 		connections := s.SimulationEngine.Orchestrator.ClientToClientConnections[id]
 		for _, id := range connections {
@@ -36,7 +36,7 @@ func (s *StateDispatchingEvents) SendMsg(msg *pb.Message, conn *models.Connectio
 			s.SimulationEngine.ClientService.ClientStreams[id].Outbox <- msgRes
 		}
 	}
-	s.SimulationEngine.Orchestrator.ClientEventsResponse = make(map[int64]*pb.Message)
+	s.SimulationEngine.Orchestrator.ClientsResponse = make(map[int64]*pb.Message)
 	s.SimulationEngine.NextState()
 	return nil
 }

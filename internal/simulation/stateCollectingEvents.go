@@ -23,8 +23,8 @@ func (s *StateCollectingEvents) GetStateName() string {
 }
 
 func (s *StateCollectingEvents) ReadMsg(msg *pb.Message, conn *models.Connection) error {
-	clientEventsRequest := s.SimulationEngine.Orchestrator.ClientEventsRequest
-	clientEventsResponse := s.SimulationEngine.Orchestrator.ClientEventsResponse
+	clientEventsRequest := s.SimulationEngine.Orchestrator.ClientsRequest
+	clientEventsResponse := s.SimulationEngine.Orchestrator.ClientsResponse
 
 	// Check if orchestrator is waiting a response from client
 	if !slices.Contains(clientEventsRequest, msg.SenderId) {
@@ -44,11 +44,11 @@ func (s *StateCollectingEvents) ReadMsg(msg *pb.Message, conn *models.Connection
 	// store msg from client into the events response
 	clientEventsResponse[msg.SenderId] = msg
 
-	s.SimulationEngine.Orchestrator.ClientEventsRequest = clientEventsRequest
-	s.SimulationEngine.Orchestrator.ClientEventsResponse = clientEventsResponse
+	s.SimulationEngine.Orchestrator.ClientsRequest = clientEventsRequest
+	s.SimulationEngine.Orchestrator.ClientsResponse = clientEventsResponse
 
 	// if we dont have any client pending change to the next state
-	if len(s.SimulationEngine.Orchestrator.ClientEventsRequest) == 0 {
+	if len(s.SimulationEngine.Orchestrator.ClientsRequest) == 0 {
 		s.SimulationEngine.NextState()
 	}
 

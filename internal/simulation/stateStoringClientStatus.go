@@ -16,8 +16,12 @@ func (s *StateStoringClientStatus) StartState() {
 	log.Printf("State: %v", s.GetStateName())
 }
 
-func (s *StateStoringClientStatus) GetStateName() string { return "" }
+func (s *StateStoringClientStatus) GetStateName() string {
+	return utils.StoringClientStatusStr
+}
+
 func (s *StateStoringClientStatus) ReadMsg(msg *pb.Message, conn *models.Connection) error {
+
 	return nil
 }
 func (s *StateStoringClientStatus) SendMsg(msg *pb.Message, conn *models.Connection) error {

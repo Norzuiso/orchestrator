@@ -29,7 +29,7 @@ func (s *StateRequestingEvents) ReadMsg(msg *pb.Message, conn *models.Connection
 func (s *StateRequestingEvents) SendMsg(msg *pb.Message, conn *models.Connection) error {
 	clientStreams := s.SimulationEngine.ClientService.ClientStreams
 	for id, client := range clientStreams {
-		s.SimulationEngine.Orchestrator.ClientEventsRequest = append(s.SimulationEngine.Orchestrator.ClientEventsRequest, id)
+		s.SimulationEngine.Orchestrator.ClientsRequest = append(s.SimulationEngine.Orchestrator.ClientsRequest, id)
 		client.Outbox <- &pb.Message{
 			SenderId:    0,
 			Epoch:       s.SimulationEngine.Orchestrator.Epoch,
