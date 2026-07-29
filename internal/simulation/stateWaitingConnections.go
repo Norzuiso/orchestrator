@@ -14,7 +14,7 @@ type StateWaitingConnections struct {
 }
 
 func (s *StateWaitingConnections) StartState() {
-	log.Printf("\nState: %s", s.GetStateName)
+	log.Printf("State: %v", s.GetStateName())
 }
 
 func (s *StateWaitingConnections) GetStateName() string {

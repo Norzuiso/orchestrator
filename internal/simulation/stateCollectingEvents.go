@@ -15,7 +15,7 @@ type StateCollectingEvents struct {
 }
 
 func (s *StateCollectingEvents) StartState() {
-	log.Printf("\nState: %s", s.GetStateName)
+	log.Printf("State: %v", s.GetStateName())
 }
 
 func (s *StateCollectingEvents) GetStateName() string {

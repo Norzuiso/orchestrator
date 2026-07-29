@@ -13,8 +13,7 @@ type StateAwaitingEventResponses struct {
 }
 
 func (s *StateAwaitingEventResponses) StartState() {
-	log.Printf("\nState: %s", s.GetStateName)
-
+	log.Printf("State: %v", s.GetStateName())
 }
 
 func (w *StateAwaitingEventResponses) GetStateName() string { return "" }

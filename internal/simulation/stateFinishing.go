@@ -13,7 +13,7 @@ type StateFinishing struct {
 }
 
 func (s *StateFinishing) StartState() {
-	log.Printf("\nState: %s", s.GetStateName)
+	log.Printf("State: %v", s.GetStateName())
 }
 
 func (s *StateFinishing) GetStateName() string                                   { return "" }

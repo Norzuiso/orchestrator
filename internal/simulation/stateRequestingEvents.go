@@ -14,7 +14,7 @@ type StateRequestingEvents struct {
 }
 
 func (s *StateRequestingEvents) StartState() {
-	log.Printf("\nState: %s", s.GetStateName)
+	log.Printf("State: %v", s.GetStateName())
 	_ = s.SendMsg(nil, nil)
 }
 

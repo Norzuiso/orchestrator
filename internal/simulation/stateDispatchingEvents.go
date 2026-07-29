@@ -14,7 +14,7 @@ type StateDispatchingEvents struct {
 }
 
 func (s *StateDispatchingEvents) StartState() {
-	log.Printf("\nState: %s", s.GetStateName)
+	log.Printf("State: %v", s.GetStateName())
 	_ = s.SendMsg(nil, nil)
 }
 

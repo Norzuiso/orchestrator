@@ -13,8 +13,7 @@ type StateAwaitingClientStatus struct {
 }
 
 func (s *StateAwaitingClientStatus) StartState() {
-	log.Printf("\nState: %s", s.GetStateName)
-
+	log.Printf("State: %v", s.GetStateName())
 }
 
 func (w *StateAwaitingClientStatus) GetStateName() string { return "" }

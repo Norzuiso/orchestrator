@@ -13,7 +13,7 @@ type StatePaused struct {
 }
 
 func (s *StatePaused) StartState() {
-	log.Printf("\nState: %s", s.GetStateName)
+	log.Printf("State: %v", s.GetStateName())
 }
 
 func (s *StatePaused) GetStateName() string                                   { return "" }
