@@ -2,14 +2,16 @@ package orchestrator
 
 import (
 	"log"
+	"math"
 	"strconv"
 
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
 )
 
 type Orchestrator struct {
-	Seed  int64
-	Epoch int64
+	Seed        int64
+	Epoch       int64
+	MaxOfEpochs int64
 
 	ActiveClients             map[int64]*pb.Client
 	ClientToClientConnections map[int64][]int64
@@ -40,6 +42,8 @@ func NewOrquestrator(seed int64) *Orchestrator {
 	o.ClientsRequest = make([]int64, 0)
 	o.ClientToClientConnections = make(map[int64][]int64)
 	o.Epoch = 0
+	o.Seed = seed
+	o.MaxOfEpochs = int64(math.Inf(1))
 	return o
 }
 
@@ -51,7 +55,7 @@ func (o *Orchestrator) PauseSimualtion() {
 }
 
 func (o *Orchestrator) NextEpoch() {
-	o.Epoch = +1
+	o.Epoch += 1
 	o.generateSeedEpoch()
 }
 

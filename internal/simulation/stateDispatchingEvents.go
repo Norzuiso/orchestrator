@@ -33,6 +33,7 @@ func (s *StateDispatchingEvents) SendMsg(msg *pb.Message, conn *models.Connectio
 		for _, id := range connections {
 			msgRes.SenderId = 0
 			msgRes.MessageType = pb.MessageType_MESSAGE_TYPE_EVENT_DISPATCH
+			msgRes.Epoch = s.SimulationEngine.Orchestrator.Epoch
 			s.SimulationEngine.ClientService.ClientStreams[id].Outbox <- msgRes
 		}
 	}

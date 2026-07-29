@@ -3,10 +3,28 @@ package simulation
 import (
 	"fmt"
 	"net/http"
+
+	"github.com/Norzuiso/orchestrator/internal/models"
+	"github.com/Norzuiso/orchestrator/internal/utils"
 )
 
 // Orchestrator
 func (s *SimulationEngine) StartSimulation(w http.ResponseWriter, req *http.Request) {
+	rBody := &models.StartSimualtionReq{}
+	utils.ParseBody(req, rBody)
+
+	init := rBody.InitEpoch
+	end := rBody.EndEpoch
+
+	if end <= init {
+		w.Header().Set("Content-type", "pkgplication/json")
+		w.WriteHeader(http.StatusNotAcceptable)
+		fmt.Fprintln(w, "Init epoch need to be greater than end epoch")
+		return
+	}
+	s.Orchestrator.Epoch = init
+	s.Orchestrator.MaxOfEpochs = end
+	s.Orchestrator.Seed = rBody.Seed
 	if _, err := fmt.Fprintf(w, "Simulation started."); err != nil {
 		return
 	}
