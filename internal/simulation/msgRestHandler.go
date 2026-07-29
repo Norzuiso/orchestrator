@@ -28,7 +28,7 @@ func (s *SimulationEngine) SendMsgToClient(w http.ResponseWriter, req *http.Requ
 	rBody := &models.MsgToClient{}
 
 	utils.ParseBody(req, rBody)
-	client, ok := s.GrpcServer.ClientStreams[rBody.ClientId]
+	client, ok := s.ClientService.ClientStreams[rBody.ClientId]
 	if !ok {
 		w.Header().Set("Content-type", "pkgplication/json")
 		w.WriteHeader(http.StatusUnprocessableEntity)

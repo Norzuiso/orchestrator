@@ -1,6 +1,9 @@
 package simulation
 
 import (
+	"fmt"
+	"log"
+
 	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/utils"
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
@@ -10,37 +13,40 @@ type StateRequestingEvents struct {
 	SimulationEngine *SimulationEngine
 }
 
-func (w *StateRequestingEvents) GetStateName() string {
+func (s *StateRequestingEvents) StartState() {
+	log.Printf("\nState: %s", s.GetStateName)
+	_ = s.SendMsg(nil, nil)
+}
+
+func (s *StateRequestingEvents) GetStateName() string {
 	return utils.RequestingEventsStr
 }
 
-func (w *StateRequestingEvents) ReadMsg(msg *pb.Message, conn *models.Connection) error {
-	conn.Outbox <- utils.BuildNoAllowMsgErrorMsg(msg)
-	return nil
+func (s *StateRequestingEvents) ReadMsg(msg *pb.Message, conn *models.Connection) error {
+	return fmt.Errorf("Message not allosit. Orchestrator is not reciving any message")
 }
 
-func (w *StateRequestingEvents) SendMsg(msg *pb.Message, conn *models.Connection) error {
-	clientStreams := w.SimulationEngine.GrpcServer.ClientStreams
-	requestMsg := &pb.Message{
-		SenderId:    0,
-		Epoch:       w.SimulationEngine.Orchestrator.Epoch,
-		MessageType: pb.MessageType_MESSAGE_TYPE_REQUEST_EVENT,
-		Content:     "",
-	}
-
+func (s *StateRequestingEvents) SendMsg(msg *pb.Message, conn *models.Connection) error {
+	clientStreams := s.SimulationEngine.ClientService.ClientStreams
 	for id, client := range clientStreams {
-		w.SimulationEngine.Orchestrator.ClientEventsRequest = append(w.SimulationEngine.Orchestrator.ClientEventsRequest, id)
-		client.Outbox <- requestMsg
+		s.SimulationEngine.Orchestrator.ClientEventsRequest = append(s.SimulationEngine.Orchestrator.ClientEventsRequest, id)
+		client.Outbox <- &pb.Message{
+			SenderId:    0,
+			Epoch:       s.SimulationEngine.Orchestrator.Epoch,
+			MessageType: pb.MessageType_MESSAGE_TYPE_REQUEST_EVENT,
+			Content:     "",
+			Seed:        s.SimulationEngine.Orchestrator.GetSeedEpochToClient(id),
+		}
 	}
-	w.SimulationEngine.NextState()
+	s.SimulationEngine.NextState()
 	return nil
 }
 
-func (w *StateRequestingEvents) NextState() (utils.State, error) {
-	return NewStateCollectingEvents(w.SimulationEngine), nil
+func (s *StateRequestingEvents) GetNextState() (utils.State, error) {
+	return NewStateCollectingEvents(s.SimulationEngine), nil
 }
 
-func (w *StateRequestingEvents) IsMsgTypeAllowIt(msg *pb.Message) bool {
+func (s *StateRequestingEvents) IsMsgTypeAllowIt(msg *pb.Message) bool {
 	return false // This state does not allow any type of msg
 }
 

@@ -18,6 +18,3 @@ func BuildPhaseErrorMsg(msg *pb.Message, err error) *pb.Message {
 	msg.SenderId = 0
 	return msg
 }
-func BuildNoAllowMsgErrorMsg(msg *pb.Message) *pb.Message {
-	return BuildErrorMsg(msg, fmt.Errorf("Message not allow it. Orchestrator is not reciving any message"))
-}

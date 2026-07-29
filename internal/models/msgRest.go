@@ -25,7 +25,7 @@ type MsgRequest struct {
 	Attributes map[string]*anypb.Any `json:"attributes"`
 }
 
-func (m *MsgRequest) MsgRequestToMessage(epoch float32, senderId int64) *pb.Message {
+func (m *MsgRequest) MsgRequestToMessage(epoch int64, senderId int64) *pb.Message {
 	return &pb.Message{
 		SenderId:    senderId,
 		Epoch:       epoch,

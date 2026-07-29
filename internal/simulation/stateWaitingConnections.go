@@ -2,6 +2,7 @@ package simulation
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/utils"
@@ -12,12 +13,16 @@ type StateWaitingConnections struct {
 	SimulationEngine *SimulationEngine
 }
 
+func (s *StateWaitingConnections) StartState() {
+	log.Printf("\nState: %s", s.GetStateName)
+}
+
 func (s *StateWaitingConnections) GetStateName() string {
 	return utils.WaitingConnectionsStr
 }
 
 func (s *StateWaitingConnections) ReadMsg(msg *pb.Message, conn *models.Connection) error {
-	conn, ok := s.SimulationEngine.GrpcServer.ClientStreams[msg.SenderId]
+	conn, ok := s.SimulationEngine.ClientService.ClientStreams[msg.SenderId]
 	if ok {
 		return s.SendMsg(utils.BuildErrorMsg(msg, fmt.Errorf("Client is already connected")), conn)
 	}
@@ -29,10 +34,8 @@ func (s *StateWaitingConnections) SendMsg(msg *pb.Message, conn *models.Connecti
 	return nil
 }
 
-func (s *StateWaitingConnections) NextState() (utils.State, error) {
-	nextState := NewStateRequestingEvents(s.SimulationEngine)
-	nextState.SendMsg(nil, nil)
-	return nextState, nil
+func (s *StateWaitingConnections) GetNextState() (utils.State, error) {
+	return NewStateRequestingEvents(s.SimulationEngine), nil
 }
 
 func (s *StateWaitingConnections) IsMsgTypeAllowIt(msg *pb.Message) bool {

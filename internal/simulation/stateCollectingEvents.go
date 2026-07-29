@@ -2,6 +2,7 @@ package simulation
 
 import (
 	"fmt"
+	"log"
 	"slices"
 
 	"github.com/Norzuiso/orchestrator/internal/models"
@@ -13,13 +14,17 @@ type StateCollectingEvents struct {
 	SimulationEngine *SimulationEngine
 }
 
-func (w *StateCollectingEvents) GetStateName() string {
+func (s *StateCollectingEvents) StartState() {
+	log.Printf("\nState: %s", s.GetStateName)
+}
+
+func (s *StateCollectingEvents) GetStateName() string {
 	return utils.CollectingEventsStr
 }
 
-func (w *StateCollectingEvents) ReadMsg(msg *pb.Message, conn *models.Connection) error {
-	clientEventsRequest := w.SimulationEngine.Orchestrator.ClientEventsRequest
-	clientEventsResponse := w.SimulationEngine.Orchestrator.ClientEventsResponse
+func (s *StateCollectingEvents) ReadMsg(msg *pb.Message, conn *models.Connection) error {
+	clientEventsRequest := s.SimulationEngine.Orchestrator.ClientEventsRequest
+	clientEventsResponse := s.SimulationEngine.Orchestrator.ClientEventsResponse
 
 	// Check if orchestrator is waiting a response from client
 	if !slices.Contains(clientEventsRequest, msg.SenderId) {
@@ -39,26 +44,27 @@ func (w *StateCollectingEvents) ReadMsg(msg *pb.Message, conn *models.Connection
 	// store msg from client into the events response
 	clientEventsResponse[msg.SenderId] = msg
 
-	w.SimulationEngine.Orchestrator.ClientEventsRequest = clientEventsRequest
-	w.SimulationEngine.Orchestrator.ClientEventsResponse = clientEventsResponse
+	s.SimulationEngine.Orchestrator.ClientEventsRequest = clientEventsRequest
+	s.SimulationEngine.Orchestrator.ClientEventsResponse = clientEventsResponse
 
 	// if we dont have any client pending change to the next state
-	if len(w.SimulationEngine.Orchestrator.ClientEventsRequest) == 0 {
-		w.SimulationEngine.NextState()
+	if len(s.SimulationEngine.Orchestrator.ClientEventsRequest) == 0 {
+		s.SimulationEngine.NextState()
 	}
 
 	return nil
 }
 
-func (w *StateCollectingEvents) SendMsg(msg *pb.Message, conn *models.Connection) error {
+func (s *StateCollectingEvents) SendMsg(msg *pb.Message, conn *models.Connection) error {
 	return nil
 }
 
-func (w *StateCollectingEvents) NextState() (utils.State, error) {
-	return NewStateDispatchingEvents(w.SimulationEngine), nil
+func (s *StateCollectingEvents) GetNextState() (utils.State, error) {
+	nextState := NewStateDispatchingEvents(s.SimulationEngine)
+	return nextState, nil
 }
 
-func (w *StateCollectingEvents) IsMsgTypeAllowIt(msg *pb.Message) bool {
+func (s *StateCollectingEvents) IsMsgTypeAllowIt(msg *pb.Message) bool {
 	return msg.GetMessageType() == pb.MessageType_MESSAGE_TYPE_EVENT_RESPONSE
 }
 

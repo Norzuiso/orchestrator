@@ -9,6 +9,11 @@ type State interface {
 	GetStateName() string
 	ReadMsg(msg *pb.Message, conn *models.Connection) error
 	SendMsg(msg *pb.Message, conn *models.Connection) error
-	NextState() (State, error)
+	GetNextState() (State, error)
 	IsMsgTypeAllowIt(msg *pb.Message) bool
+	StartState()
+}
+
+type StateProvider interface {
+	GetCurrentState() State
 }

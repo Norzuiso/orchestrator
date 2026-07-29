@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/Norzuiso/orchestrator/internal/models"
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
 
 	"github.com/Norzuiso/orchestrator/internal/orchestrator"
@@ -19,8 +20,8 @@ import (
 )
 
 type SimulationEngine struct {
-	GrpcServer   *servers.ClientToClientService
-	Orchestrator *orchestrator.Orchestrator
+	ClientService *servers.ClientToClientService
+	Orchestrator  *orchestrator.Orchestrator
 
 	StateAwaitingClientStatus   utils.State
 	StateAwaitingEventResponses utils.State
@@ -33,50 +34,48 @@ type SimulationEngine struct {
 	StateStoringClientStatus    utils.State
 	StateWaitingConnections     utils.State
 
-	currentState utils.State
+	CurrentState utils.State
 }
 
-func (s *SimulationEngine) NextState() (utils.State, error) {
-	nextState, err := s.currentState.NextState()
-	if err != nil {
-		return nil, err
-	}
-	s.SetState(nextState)
-	return s.currentState, nil
+func (s *SimulationEngine) GetCurrentState() utils.State {
+	return s.CurrentState
 }
 
-func NewSimulationEngine(orchestrator *orchestrator.Orchestrator,
-	clientToClientService *servers.ClientToClientService) *SimulationEngine {
-	s := &SimulationEngine{
-		GrpcServer:   clientToClientService,
-		Orchestrator: orchestrator,
+func (s *SimulationEngine) NextState() {
+	s.CurrentState, _ = s.CurrentState.GetNextState()
+	s.CurrentState.StartState()
+}
+
+func NewSimulationEngine() *SimulationEngine {
+
+	s := &SimulationEngine{}
+
+	// Orchestrator
+	o := orchestrator.NewOrquestrator(1004) // TODO - Change the seed value to get it from config
+	clientService := &servers.ClientToClientService{
+		ClientStreams: make(map[int64]*models.Connection),
+		Orchestrator:  o,
+		StateProvider: s,
 	}
+	s.ClientService = clientService
+	s.Orchestrator = o
 
-	stateWaitingconnections := NewStateWaitingConnections(s)
+	stateWaitingConnections := NewStateWaitingConnections(s)
 
-	s.SetState(stateWaitingconnections)
-	s.StateWaitingConnections = stateWaitingconnections
+	s.CurrentState = stateWaitingConnections
+	s.StateWaitingConnections = stateWaitingConnections
 
-	// TODO - First make it work on WaitingConnection
-	//==============================================================
-	// s.StateAwaitingClientStatus = NewStateAwaitingClientStatus(s)
-	// s.StateAwaitingEventResponses = NewStateAwaitingClientStatus(s)
-	// s.StateCollectingEvents = NewStateCollectingEvents(s)
-	// s.StateDispatchingEvents = NewStateDispatchingEvents(s)
-	// s.StateFinishing = NewStateFinishing(s)
-	// s.StatePaused = NewStatePaused(s)
-	// s.StateRequestingClientStatus = NewStateRequestingClientStatus(s)
-	// s.StateRequestingEvents = NewStateRequestingEvents(s)
-	// s.StateStoringClientStatus = NewStateStoringClientStatus(s)
-	//==============================================================
+	s.StateAwaitingClientStatus = NewStateAwaitingClientStatus(s)
+	s.StateAwaitingEventResponses = NewStateAwaitingEventResponses(s)
+	s.StateCollectingEvents = NewStateCollectingEvents(s)
+	s.StateDispatchingEvents = NewStateDispatchingEvents(s)
+	s.StateFinishing = NewStateFinishing(s)
+	s.StatePaused = NewStatePaused(s)
+	s.StateRequestingClientStatus = NewStateRequestingClientStatus(s)
+	s.StateRequestingEvents = NewStateRequestingEvents(s)
+	s.StateStoringClientStatus = NewStateStoringClientStatus(s)
 
 	return s
-}
-
-func (s *SimulationEngine) SetState(state utils.State) {
-	s.currentState = state
-	s.GrpcServer.State = s.currentState
-	log.Println(s.currentState.GetStateName())
 }
 
 func (s *SimulationEngine) GrpcConnect() {
@@ -97,7 +96,7 @@ func (s *SimulationEngine) GrpcConnect() {
 	// grpc.StatsHandler(&register.StatsHandler{}),
 	)
 
-	pb.RegisterBroadcastServer(grpcServer, s.GrpcServer)
+	pb.RegisterBroadcastServer(grpcServer, s.ClientService)
 
 	// run server
 	listener, err := net.Listen("tcp", ":8080") // TODO - Change port to get it from config
@@ -138,13 +137,7 @@ func (s *SimulationEngine) errorHandler() {
 
 func StartSimulationEnine() {
 
-	// Orchestrator
-	orchestrator := orchestrator.NewOrquestrator()
-	clientToClientService := servers.NewClientToClientService(orchestrator) // TODO - Change the seed value to get it from config
-
-	se := NewSimulationEngine(orchestrator, clientToClientService)
-	se.GrpcServer.State = se.currentState
-
+	se := NewSimulationEngine()
 	wg := sync.WaitGroup{}
 
 	defer se.errorHandler()

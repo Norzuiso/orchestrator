@@ -1,6 +1,8 @@
 package simulation
 
 import (
+	"log"
+
 	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/utils"
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
@@ -10,15 +12,19 @@ type StateRequestingClientStatus struct {
 	SimulationEngine *SimulationEngine
 }
 
-func (w *StateRequestingClientStatus) GetStateName() string { return "" }
-func (w *StateRequestingClientStatus) ReadMsg(msg *pb.Message, conn *models.Connection) error {
+func (s *StateRequestingClientStatus) StartState() {
+	log.Printf("\nState: %s", s.GetStateName)
+}
+
+func (s *StateRequestingClientStatus) GetStateName() string { return "" }
+func (s *StateRequestingClientStatus) ReadMsg(msg *pb.Message, conn *models.Connection) error {
 	return nil
 }
-func (w *StateRequestingClientStatus) SendMsg(msg *pb.Message, conn *models.Connection) error {
+func (s *StateRequestingClientStatus) SendMsg(msg *pb.Message, conn *models.Connection) error {
 	return nil
 }
-func (w *StateRequestingClientStatus) NextState() (utils.State, error)       { return nil, nil }
-func (w *StateRequestingClientStatus) IsMsgTypeAllowIt(msg *pb.Message) bool { return false }
+func (s *StateRequestingClientStatus) GetNextState() (utils.State, error)    { return nil, nil }
+func (s *StateRequestingClientStatus) IsMsgTypeAllowIt(msg *pb.Message) bool { return false }
 
 func NewStateRequestingClientStatus(s *SimulationEngine) *StateRequestingClientStatus {
 	return &StateRequestingClientStatus{SimulationEngine: s}

@@ -7,23 +7,20 @@ import (
 
 // Orchestrator
 func (s *SimulationEngine) StartSimulation(w http.ResponseWriter, req *http.Request) {
-	nextState, _ := s.currentState.NextState()
-	s.SetState(nextState)
-	fmt.Fprintf(w, "Simulation started.")
+	if _, err := fmt.Fprintf(w, "Simulation started."); err != nil {
+		return
+	}
+	s.NextState()
 }
 
 func (s *SimulationEngine) StopSimulation(w http.ResponseWriter, req *http.Request) {
 	s.Orchestrator.PauseSimualtion()
-	fmt.Fprintf(w, "Simulation stopped on \n\t epoch: \t%v \n\tphase:\t%v\n\t.", s.Orchestrator.Epoch, s.currentState.GetStateName())
+	fmt.Fprintf(w, "Simulation stopped on \n\t epoch: \t%v \n\tphase:\t%v\n\t.", s.Orchestrator.Epoch, s.CurrentState.GetStateName())
 }
 
 func (s *SimulationEngine) NextStateHttp(w http.ResponseWriter, req *http.Request) {
-	newState, err := s.NextState()
-	if err != nil {
-		fmt.Fprintf(w, "%v", err)
-	}
-
-	fmt.Fprintf(w, "Phase updated. From: %v", newState)
+	s.NextState()
+	fmt.Fprintf(w, "State updated. Current State: %v", s.CurrentState.GetStateName())
 }
 
 func (s *SimulationEngine) NextEpoch(w http.ResponseWriter, req *http.Request) {

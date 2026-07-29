@@ -18,12 +18,13 @@ type ClientToClientService struct {
 	ClientStreams map[int64]*models.Connection
 	Orchestrator  *orchestrator.Orchestrator
 
-	State utils.State
+	StateProvider utils.StateProvider
 }
 
-func NewClientToClientService(orchestrator *orchestrator.Orchestrator) *ClientToClientService {
+func NewClientToClientService(o *orchestrator.Orchestrator) *ClientToClientService {
 	return &ClientToClientService{
 		ClientStreams: make(map[int64]*models.Connection),
+		Orchestrator:  o,
 	}
 }
 
@@ -78,14 +79,14 @@ func (c *ClientToClientService) validateFirstMsg(msg *pb.Message) error {
 		return fmt.Errorf("Client %v already has an open stream.", senderId)
 	}
 	// Check if the Simulator state is WaitingConnections and if the msgType is allowit
-	if c.State.GetStateName() != utils.WaitingConnectionsStr {
+	if c.StateProvider.GetCurrentState().GetStateName() != utils.WaitingConnectionsStr {
 		return fmt.Errorf("Simulator is not accepting new connections.")
 	}
 	return c.validateMsgTypeOnState(msg)
 }
 func (c *ClientToClientService) validateMsgTypeOnState(msg *pb.Message) error {
 	// check if msgType is allow it
-	if !c.State.IsMsgTypeAllowIt(msg) {
+	if !c.StateProvider.GetCurrentState().IsMsgTypeAllowIt(msg) {
 		return fmt.Errorf("MessageType: %v:%v is not allow it", msg.MessageType.String(), msg.MessageType.Number())
 	}
 	return nil
@@ -122,7 +123,7 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 				continue
 			}
 
-			if err = c.State.ReadMsg(msg, c.ClientStreams[senderId]); err != nil {
+			if err = c.StateProvider.GetCurrentState().ReadMsg(msg, c.ClientStreams[senderId]); err != nil {
 				conn.Outbox <- utils.BuildErrorMsg(msg, err)
 			}
 		}
