@@ -20,15 +20,14 @@ type Orchestrator struct {
 	SeedEpoch                 int64
 }
 
-func (o *Orchestrator) GetSeedEpochToClient(clientId int64) int64 {
-	seedEpochStr := strconv.FormatInt(o.SeedEpoch, 10)
-	clientIdStr := strconv.FormatInt(clientId, 10)
-	seedEpochClientStr := seedEpochStr + clientIdStr
-	seedEpochClient, err := strconv.ParseInt(seedEpochClientStr, 10, 64)
+func (o *Orchestrator) GetClientSeed(clientId int64) int64 {
+	seedEpochStr := strconv.FormatInt(o.GetSeedEpoch(), 10)
+	strResult := seedEpochStr + strconv.FormatInt(clientId, 10)
+	seedEpochClient, err := strconv.ParseInt(strResult, 10, 64)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return int64(seedEpochClient)
+	return seedEpochClient
 }
 
 func (o *Orchestrator) GetSeedEpoch() int64 {
@@ -44,6 +43,7 @@ func NewOrquestrator(seed int64) *Orchestrator {
 	o.Epoch = 0
 	o.Seed = seed
 	o.MaxOfEpochs = int64(math.Inf(1))
+	o.generateSeedEpoch()
 	return o
 }
 

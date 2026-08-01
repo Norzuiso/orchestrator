@@ -34,7 +34,7 @@ func (s *StateRequestingClientStatus) SendMsg(msg *pb.Message, conn *models.Conn
 			Epoch:       s.SimulationEngine.Orchestrator.Epoch,
 			MessageType: pb.MessageType_MESSAGE_TYPE_REQUEST_CLIENT_STATUS,
 			Content:     "",
-			Seed:        s.SimulationEngine.Orchestrator.GetSeedEpochToClient(id),
+			Seed:        s.SimulationEngine.Orchestrator.GetClientSeed(id),
 		}
 	}
 	s.SimulationEngine.NextState()

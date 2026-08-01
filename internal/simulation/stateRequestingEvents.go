@@ -43,7 +43,7 @@ func (s *StateRequestingEvents) SendMsg(msg *pb.Message, conn *models.Connection
 			Epoch:       s.SimulationEngine.Orchestrator.Epoch,
 			MessageType: pb.MessageType_MESSAGE_TYPE_REQUEST_EVENT,
 			Content:     "",
-			Seed:        s.SimulationEngine.Orchestrator.GetSeedEpochToClient(id),
+			Seed:        s.SimulationEngine.Orchestrator.GetClientSeed(id),
 		}
 	}
 	s.SimulationEngine.NextState()

@@ -36,13 +36,11 @@ func (c *ClientToClientService) ConnectClient(ctx context.Context, req *pb.Conne
 	}
 
 	if client.GetName() == "" {
-		client.Name = strconv.Itoa(int(client.GetId()))
+		client.Name = strconv.FormatInt(client.Id, 10)
 	}
 
 	if client.GetSeed() == 0 {
-		strResult := strconv.Itoa(int(c.Orchestrator.Seed)) + strconv.Itoa(int(client.GetId()))
-		newSeed, _ := strconv.Atoi(strResult)
-		client.Seed = int64(newSeed)
+		client.Seed = c.Orchestrator.GetClientSeed(client.Id)
 	}
 
 	c.Orchestrator.ActiveClients[client.Id] = client
@@ -155,7 +153,7 @@ func openStream(stream pb.Broadcast_ClientToClientMessageServer, c *ClientToClie
 		MessageType: pb.MessageType_MESSAGE_TYPE_DEFAULT,
 		Content:     "Connection created",
 		Epoch:       c.Orchestrator.Epoch,
-		Seed:        c.Orchestrator.GetSeedEpochToClient(senderId),
+		Seed:        c.Orchestrator.GetClientSeed(senderId),
 	})
 
 	c.ClientStreams[senderId].ErrCh = make(chan error, 2)
