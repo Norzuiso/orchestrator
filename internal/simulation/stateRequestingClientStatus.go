@@ -41,7 +41,7 @@ func (s *StateRequestingClientStatus) SendMsg(msg *pb.Message, conn *models.Conn
 	return nil
 }
 func (s *StateRequestingClientStatus) GetNextState() (utils.State, error) {
-	return NewStateAwaitingClientStatus(s.SimulationEngine), nil
+	return NewStateStoringClientStatus(s.SimulationEngine), nil
 }
 
 func (s *StateRequestingClientStatus) IsMsgTypeAllowIt(msg *pb.Message) bool {

@@ -14,6 +14,13 @@ type StateRequestingEvents struct {
 }
 
 func (s *StateRequestingEvents) StartState() {
+
+	if s.SimulationEngine.Orchestrator.Epoch == s.SimulationEngine.Orchestrator.MaxOfEpochs {
+		s.SimulationEngine.CurrentState = s.SimulationEngine.StateEnd
+		s.SimulationEngine.CurrentState.StartState()
+		return
+	}
+
 	s.SimulationEngine.Orchestrator.NextEpoch()
 	log.Printf("State: %v", s.GetStateName())
 	_ = s.SendMsg(nil, nil)

@@ -22,7 +22,15 @@ func (s *SimulationEngine) StartSimulation(w http.ResponseWriter, req *http.Requ
 		fmt.Fprintln(w, "Init epoch need to be greater than end epoch")
 		return
 	}
-	s.Orchestrator.Epoch = init
+
+	if init < 0 {
+		w.Header().Set("Content-type", "pkgplication/json")
+		w.WriteHeader(http.StatusNotAcceptable)
+		fmt.Fprintln(w, "Init epoch need to be greater than 0")
+		return
+	}
+
+	s.Orchestrator.Epoch = (init - 1)
 	s.Orchestrator.MaxOfEpochs = end
 	s.Orchestrator.Seed = rBody.Seed
 	if _, err := fmt.Fprintf(w, "Simulation started."); err != nil {
