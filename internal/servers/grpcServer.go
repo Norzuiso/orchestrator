@@ -84,6 +84,7 @@ func (c *ClientToClientService) validateFirstMsg(msg *pb.Message) error {
 	}
 	return c.validateMsgTypeOnState(msg)
 }
+
 func (c *ClientToClientService) validateMsgTypeOnState(msg *pb.Message) error {
 	// check if msgType is allow it
 	if !c.StateProvider.GetCurrentState().IsMsgTypeAllowIt(msg) {
@@ -95,20 +96,10 @@ func (c *ClientToClientService) validateMsgTypeOnState(msg *pb.Message) error {
 func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_ClientToClientMessageServer) error {
 
 	// Read first msg
-	msg, err := stream.Recv()
+	senderId, conn, err := openStream(stream, c)
 	if err != nil {
 		return err
 	}
-	if err := c.validateFirstMsg(msg); err != nil {
-		return err
-	}
-
-	senderId := msg.GetSenderId()
-
-	conn := &models.Connection{Stream: stream, Outbox: make(chan *pb.Message, 10)}
-	c.ClientStreams[senderId] = conn
-
-	c.ClientStreams[senderId].ErrCh = make(chan error, 2)
 	// READ MESSAGE
 	go func() {
 		for {
@@ -143,4 +134,30 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 	delete(c.ClientStreams, senderId)
 
 	return nil
+}
+
+func openStream(stream pb.Broadcast_ClientToClientMessageServer, c *ClientToClientService) (int64, *models.Connection, error) {
+	msg, err := stream.Recv()
+	if err != nil {
+		return 0, nil, err
+	}
+	if err := c.validateFirstMsg(msg); err != nil {
+		return 0, nil, err
+	}
+
+	senderId := msg.GetSenderId()
+
+	conn := &models.Connection{Stream: stream, Outbox: make(chan *pb.Message, 10)}
+	c.ClientStreams[senderId] = conn
+
+	stream.Send(&pb.Message{
+		SenderId:    0,
+		MessageType: pb.MessageType_MESSAGE_TYPE_DEFAULT,
+		Content:     "Connection created",
+		Epoch:       c.Orchestrator.Epoch,
+		Seed:        c.Orchestrator.GetSeedEpochToClient(senderId),
+	})
+
+	c.ClientStreams[senderId].ErrCh = make(chan error, 2)
+	return senderId, conn, nil
 }
