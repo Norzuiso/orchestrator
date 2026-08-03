@@ -45,7 +45,7 @@ func (c *ClientToClientService) ConnectClient(ctx context.Context, req *pb.Conne
 	}
 
 	c.Orchestrator.ActiveClients[client.Id] = client
-	c.Orchestrator.ClientToClientConnection[client.Id] = make([]*pb.ClientConnection, 0)
+	c.Orchestrator.ClientToClientConnection[client.Id] = &pb.ClientConnectionList{}
 
 	res := &pb.ConnectionResponse{Client: client}
 
@@ -60,7 +60,7 @@ func (c *ClientToClientService) RegisterConnection(ctx context.Context, req *pb.
 		return nil, errors.New("Client not foud on cliet to client connections clients")
 	}
 
-	c.Orchestrator.ClientToClientConnection[req.FromId] = append(c.Orchestrator.ClientToClientConnection[req.FromId], req.To...)
+	c.Orchestrator.ClientToClientConnection[req.FromId] = req.To
 	log.Println(c.Orchestrator.ClientToClientConnection)
 	res := &pb.RegisterConnectionResponse{Response: "Connections created"}
 

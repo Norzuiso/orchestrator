@@ -29,7 +29,7 @@ func (s *StateDispatchingEvents) ReadMsg(msg *pb.Message, conn *models.Connectio
 func (s *StateDispatchingEvents) SendMsg(msg *pb.Message, conn *models.Connection) error {
 	responses := s.SimulationEngine.Orchestrator.ClientsResponse
 	for id, msgRes := range responses {
-		connections := s.SimulationEngine.Orchestrator.ClientToClientConnection[id]
+		connections := s.SimulationEngine.Orchestrator.ClientToClientConnection[id].GetConnections()
 		for _, connection := range connections {
 			msgRes.Epoch = s.SimulationEngine.Orchestrator.Epoch
 

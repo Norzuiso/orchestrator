@@ -11,4 +11,10 @@ const (
 	StoringClientStatusStr    = "StoringClientStatus"    // 8 <- Store client status
 	FinishingStr              = "Finishing"              // 9
 	PausedStr                 = "Paused"                 // 0 This state can be used to pause the simulation
+
+	// DB <-- Bbolt
+	// ==============================
+	BucketClients        = "clients"
+	BucketClientToClient = "client-to-client"
+	BucketClientResponse = "client-response"
 )

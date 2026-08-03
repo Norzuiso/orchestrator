@@ -3,7 +3,9 @@ package orchestrator
 import (
 	"log"
 	"math"
+	"slices"
 	"strconv"
+	"sync"
 
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
 )
@@ -14,10 +16,22 @@ type Orchestrator struct {
 	MaxOfEpochs int64
 
 	ActiveClients            map[int64]*pb.Client
-	ClientToClientConnection map[int64][]*pb.ClientConnection
+	ClientToClientConnection map[int64]*pb.ClientConnectionList
 	ClientsResponse          map[int64]*pb.Message
-	ClientsRequest           []int64
-	SeedEpoch                int64
+
+	mu sync.Mutex
+
+	ClientsRequest []int64
+	SeedEpoch      int64
+}
+
+func (o *Orchestrator) RemoveFromRequest(fromId int64) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.ClientsRequest = slices.DeleteFunc(o.ClientsRequest, func(id int64) bool {
+		return id == fromId
+	})
+
 }
 
 func (o *Orchestrator) GetEpoch() int64 {
@@ -46,7 +60,7 @@ func NewOrquestrator(seed int64) *Orchestrator {
 	o.ActiveClients = make(map[int64]*pb.Client)
 	o.ClientsResponse = make(map[int64]*pb.Message)
 	o.ClientsRequest = make([]int64, 0)
-	o.ClientToClientConnection = make(map[int64][]*pb.ClientConnection)
+	o.ClientToClientConnection = make(map[int64]*pb.ClientConnectionList)
 	o.Epoch = 0
 	o.Seed = seed
 	o.MaxOfEpochs = int64(math.Inf(1))

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -12,4 +13,10 @@ func ParseBody(r *http.Request, x interface{}) {
 			return
 		}
 	}
+}
+
+func Int64ToBytes(i int64) []byte {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(i))
+	return b
 }
