@@ -2,10 +2,14 @@ package simulation
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/utils"
+	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
+	"google.golang.org/protobuf/encoding/protojson"
+	_ "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func (s *SimulationEngine) GetActiveClients(w http.ResponseWriter, req *http.Request) {
@@ -22,6 +26,23 @@ func (s *SimulationEngine) GetClientToClientConnection(w http.ResponseWriter, re
 
 func (s *SimulationEngine) GetClientStatus(w http.ResponseWriter, req *http.Request) {
 
+}
+
+func (s *SimulationEngine) RegisterClientToClientconnection(w http.ResponseWriter, req *http.Request) {
+	rBody := &pb.RegisterConnectionRequest{}
+	body, _ := io.ReadAll(req.Body)
+
+	if err := protojson.Unmarshal(body, rBody); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	res, err := s.ClientService.RegisterConnection(req.Context(), rBody)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	fmt.Fprintf(w, "%s", res.String())
 }
 
 func (s *SimulationEngine) SendMsgToClient(w http.ResponseWriter, req *http.Request) {

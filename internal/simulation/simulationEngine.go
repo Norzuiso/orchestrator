@@ -115,6 +115,7 @@ func (s *SimulationEngine) HttpConnect() {
 	http.HandleFunc("POST /msg/all", s.SendMsgToAllClients)           // TODO
 	http.HandleFunc("POST /msg/client", s.SendMsgToClient)            // TODO
 	http.HandleFunc("POST /msg/clients/list", s.SendMsgToClientsList) // TODO
+	http.HandleFunc("POST /msg/client-to-client", s.RegisterClientToClientconnection)
 
 	http.HandleFunc("POST /simulation/start", s.StartSimulation)
 	http.HandleFunc("GET /simulation/pause", s.StopSimulation) // TODO
