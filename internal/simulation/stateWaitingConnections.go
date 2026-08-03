@@ -30,7 +30,9 @@ func (s *StateWaitingConnections) ReadMsg(msg *pb.Message, conn *models.Connecti
 }
 
 func (s *StateWaitingConnections) SendMsg(msg *pb.Message, conn *models.Connection) error {
-	conn.Outbox <- msg
+	done := make(chan error, 1)
+	conn.Outbox <- models.OutboxItem{Msg: msg, Done: done}
+	<-done
 	return nil
 }
 

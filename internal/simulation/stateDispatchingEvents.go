@@ -29,12 +29,15 @@ func (s *StateDispatchingEvents) ReadMsg(msg *pb.Message, conn *models.Connectio
 func (s *StateDispatchingEvents) SendMsg(msg *pb.Message, conn *models.Connection) error {
 	responses := s.SimulationEngine.Orchestrator.ClientsResponse
 	for id, msgRes := range responses {
-		connections := s.SimulationEngine.Orchestrator.ClientToClientConnections[id]
-		for _, id := range connections {
-			msgRes.SenderId = 0
-			msgRes.MessageType = pb.MessageType_MESSAGE_TYPE_EVENT_DISPATCH
+		connections := s.SimulationEngine.Orchestrator.ClientToClientConnection[id]
+		for _, connection := range connections {
 			msgRes.Epoch = s.SimulationEngine.Orchestrator.Epoch
-			s.SimulationEngine.ClientService.ClientStreams[id].Outbox <- msgRes
+
+			msgRes.MessageType = pb.MessageType_MESSAGE_TYPE_EVENT_DISPATCH
+			msgRes.Attributes = connection.Attributes
+			done := make(chan error, 1)
+			s.SimulationEngine.ClientService.ClientStreams[connection.ToId].Outbox <- models.OutboxItem{Msg: msgRes, Done: done}
+			<-done
 		}
 	}
 	s.SimulationEngine.Orchestrator.ClientsResponse = make(map[int64]*pb.Message)

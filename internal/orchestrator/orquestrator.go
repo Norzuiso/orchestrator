@@ -13,11 +13,18 @@ type Orchestrator struct {
 	Epoch       int64
 	MaxOfEpochs int64
 
-	ActiveClients             map[int64]*pb.Client
-	ClientToClientConnections map[int64][]int64
-	ClientsResponse           map[int64]*pb.Message
-	ClientsRequest            []int64
-	SeedEpoch                 int64
+	ActiveClients            map[int64]*pb.Client
+	ClientToClientConnection map[int64][]*pb.ClientConnection
+	ClientsResponse          map[int64]*pb.Message
+	ClientsRequest           []int64
+	SeedEpoch                int64
+}
+
+func (o *Orchestrator) GetEpoch() int64 {
+	if o.Epoch != 0 {
+		return o.Epoch
+	}
+	return 8080
 }
 
 func (o *Orchestrator) GetClientSeed(clientId int64) int64 {
@@ -39,7 +46,7 @@ func NewOrquestrator(seed int64) *Orchestrator {
 	o.ActiveClients = make(map[int64]*pb.Client)
 	o.ClientsResponse = make(map[int64]*pb.Message)
 	o.ClientsRequest = make([]int64, 0)
-	o.ClientToClientConnections = make(map[int64][]int64)
+	o.ClientToClientConnection = make(map[int64][]*pb.ClientConnection)
 	o.Epoch = 0
 	o.Seed = seed
 	o.MaxOfEpochs = int64(math.Inf(1))

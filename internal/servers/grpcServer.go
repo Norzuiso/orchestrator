@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/Norzuiso/orchestrator/internal/models"
@@ -44,7 +45,7 @@ func (c *ClientToClientService) ConnectClient(ctx context.Context, req *pb.Conne
 	}
 
 	c.Orchestrator.ActiveClients[client.Id] = client
-	c.Orchestrator.ClientToClientConnections[client.Id] = make([]int64, 0)
+	c.Orchestrator.ClientToClientConnection[client.Id] = make([]*pb.ClientConnection, 0)
 
 	res := &pb.ConnectionResponse{Client: client}
 
@@ -55,13 +56,12 @@ func (c *ClientToClientService) RegisterConnection(ctx context.Context, req *pb.
 	if _, ok := c.Orchestrator.ActiveClients[req.FromId]; !ok {
 		return nil, errors.New("Client not foud on active clients")
 	}
-	if _, ok := c.Orchestrator.ClientToClientConnections[req.FromId]; !ok {
+	if _, ok := c.Orchestrator.ClientToClientConnection[req.FromId]; !ok {
 		return nil, errors.New("Client not foud on cliet to client connections clients")
 	}
 
-	// In the future we are going to validate if the clients from toId exist in ActiveClients
-	c.Orchestrator.ClientToClientConnections[req.FromId] = append(c.Orchestrator.ClientToClientConnections[req.FromId], req.GetToId()...)
-
+	c.Orchestrator.ClientToClientConnection[req.FromId] = append(c.Orchestrator.ClientToClientConnection[req.FromId], req.To...)
+	log.Println(c.Orchestrator.ClientToClientConnection)
 	res := &pb.RegisterConnectionResponse{Response: "Connections created"}
 
 	return res, nil
@@ -98,6 +98,7 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 	if err != nil {
 		return err
 	}
+
 	// READ MESSAGE
 	go func() {
 		for {
@@ -107,12 +108,17 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 			}
 
 			if err := c.validateMsgTypeOnState(msg); err != nil {
-				conn.Outbox <- utils.BuildPhaseErrorMsg(msg, err)
+				done := make(chan error, 1)
+				conn.Outbox <- models.OutboxItem{Msg: utils.BuildPhaseErrorMsg(msg, err), Done: done}
+				<-done
 				continue
 			}
+			log.Println("Read: ", msg.String())
 
 			if err = c.StateProvider.GetCurrentState().ReadMsg(msg, c.ClientStreams[senderId]); err != nil {
-				conn.Outbox <- utils.BuildErrorMsg(msg, err)
+				done := make(chan error, 1)
+				conn.Outbox <- models.OutboxItem{Msg: utils.BuildPhaseErrorMsg(msg, err), Done: done}
+				<-done
 			}
 		}
 	}()
@@ -120,12 +126,15 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 	// Send msg to client
 	go func() {
 		clientConnection := c.ClientStreams[senderId]
-		for msgQueue := range clientConnection.Outbox {
-			err := stream.Send(msgQueue)
+		for item := range clientConnection.Outbox {
+			item.Msg.Epoch = c.Orchestrator.Epoch
+			err := stream.Send(item.Msg)
+			item.Done <- err
 			if err != nil {
 				c.ClientStreams[senderId].ErrCh <- err
 				return
 			}
+			log.Println("Send: ", item.Msg.String())
 		}
 	}()
 	<-c.ClientStreams[senderId].ErrCh
@@ -145,7 +154,7 @@ func openStream(stream pb.Broadcast_ClientToClientMessageServer, c *ClientToClie
 
 	senderId := msg.GetSenderId()
 
-	conn := &models.Connection{Stream: stream, Outbox: make(chan *pb.Message, 10)}
+	conn := &models.Connection{Stream: stream, Outbox: make(chan models.OutboxItem)}
 	c.ClientStreams[senderId] = conn
 
 	stream.Send(&pb.Message{
@@ -155,6 +164,7 @@ func openStream(stream pb.Broadcast_ClientToClientMessageServer, c *ClientToClie
 		Epoch:       c.Orchestrator.Epoch,
 		Seed:        c.Orchestrator.GetClientSeed(senderId),
 	})
+	log.Println(msg.String())
 
 	c.ClientStreams[senderId].ErrCh = make(chan error, 2)
 	return senderId, conn, nil

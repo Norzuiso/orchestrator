@@ -38,13 +38,16 @@ func (s *StateRequestingEvents) SendMsg(msg *pb.Message, conn *models.Connection
 	clientStreams := s.SimulationEngine.ClientService.ClientStreams
 	for id, client := range clientStreams {
 		s.SimulationEngine.Orchestrator.ClientsRequest = append(s.SimulationEngine.Orchestrator.ClientsRequest, id)
-		client.Outbox <- &pb.Message{
+		done := make(chan error, 1)
+		client.Outbox <- models.OutboxItem{Msg: &pb.Message{
 			SenderId:    0,
-			Epoch:       s.SimulationEngine.Orchestrator.Epoch,
+			Epoch:       s.SimulationEngine.Orchestrator.GetEpoch(),
 			MessageType: pb.MessageType_MESSAGE_TYPE_REQUEST_EVENT,
 			Content:     "",
 			Seed:        s.SimulationEngine.Orchestrator.GetClientSeed(id),
-		}
+		}, Done: done}
+		<-done
+
 	}
 	s.SimulationEngine.NextState()
 	return nil
