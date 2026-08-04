@@ -39,6 +39,20 @@ type SimulationEngine struct {
 	CurrentState utils.State
 }
 
+func (s *SimulationEngine) EndEpoch() {
+	s.ClientService.LogStorage.LogMessage(fmt.Sprintf("EndEpoch: %v", s.Orchestrator.SeedEpoch), &pb.Message{Epoch: s.Orchestrator.Epoch}, fmt.Sprintf("EndEpoch: %v", s.Orchestrator.SeedEpoch))
+	if !s.Orchestrator.StepsMode {
+		s.StartEpoch()
+	}
+}
+
+func (s *SimulationEngine) StartEpoch() {
+	s.Orchestrator.NextEpoch()
+	s.ClientService.LogStorage.LogMessage(fmt.Sprintf("StartEpoch: %v", s.Orchestrator.SeedEpoch), &pb.Message{Epoch: s.Orchestrator.Epoch}, fmt.Sprintf("StartEpoch: %v", s.Orchestrator.SeedEpoch))
+	s.CurrentState = s.StateRequestingEvents
+	s.CurrentState.StartState()
+}
+
 func (s *SimulationEngine) GetCurrentState() utils.State {
 	return s.CurrentState
 }

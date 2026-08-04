@@ -33,6 +33,7 @@ func (s *SimulationEngine) StartSimulation(w http.ResponseWriter, req *http.Requ
 	s.Orchestrator.Epoch = (init - 1)
 	s.Orchestrator.MaxOfEpochs = end
 	s.Orchestrator.Seed = rBody.Seed
+	s.Orchestrator.StepsMode = rBody.StepsMode
 	if _, err := fmt.Fprintf(w, "Simulation started."); err != nil {
 		return
 	}
@@ -62,6 +63,6 @@ func (s *SimulationEngine) NextStateHttp(w http.ResponseWriter, req *http.Reques
 }
 
 func (s *SimulationEngine) NextEpoch(w http.ResponseWriter, req *http.Request) {
-	s.Orchestrator.NextEpoch()
+	s.StartEpoch()
 	fmt.Fprintf(w, "Epoch: %v", s.Orchestrator.Epoch)
 }

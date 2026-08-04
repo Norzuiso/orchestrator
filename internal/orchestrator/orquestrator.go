@@ -13,6 +13,7 @@ type Orchestrator struct {
 	Epoch       int64
 	MaxOfEpochs int64
 	SeedEpoch   int64
+	StepsMode   bool
 
 	mu              sync.Mutex
 	clientsRequest  []int64

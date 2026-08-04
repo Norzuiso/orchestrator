@@ -50,7 +50,7 @@ func (s *StateDispatchingEvents) SendMsg(msg *pb.Message, conn *models.Connectio
 		}
 	}
 	s.SimulationEngine.Orchestrator.ResetClientsResponse()
-	s.SimulationEngine.NextState()
+	s.SimulationEngine.EndEpoch()
 	return nil
 }
 func (s *StateDispatchingEvents) GetNextState() (utils.State, error) {
