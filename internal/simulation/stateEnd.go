@@ -2,7 +2,6 @@ package simulation
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/utils"
@@ -14,7 +13,7 @@ type StateEnd struct {
 }
 
 func (s *StateEnd) StartState() {
-	log.Printf("State: %v", s.GetStateName())
+	// log.Printf("State: %v", s.GetStateName())
 	_ = s.SendMsg(nil, nil)
 }
 

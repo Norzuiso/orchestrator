@@ -61,9 +61,12 @@ func NewSimulationEngine() *SimulationEngine {
 		Orchestrator:    orch,
 		StateProvider:   s,
 		StorageProvider: s.Storage,
+		LogStorage:      &storage.LogStorage{},
 	}
 	s.ClientService = clientService
 	s.Orchestrator = orch
+
+	s.ClientService.LogStorage.OpenDb("log.db")
 
 	stateWaitingConnections := NewStateWaitingConnections(s)
 
@@ -84,7 +87,6 @@ func NewSimulationEngine() *SimulationEngine {
 }
 
 func (s *SimulationEngine) GrpcConnect() {
-
 	// GRPC server logging
 	// logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	// opts := []logging.Option{
@@ -96,9 +98,9 @@ func (s *SimulationEngine) GrpcConnect() {
 	// 	),
 	// }
 	grpcServer := grpc.NewServer(
-		// grpc.ChainStreamInterceptor(logging.StreamServerInterceptor(interceptorLogger(logger), opts...)),
-		// grpc.ChainUnaryInterceptor(logging.UnaryServerInterceptor(interceptorLogger(logger), opts...)),
-		// grpc.StatsHandler(&register.StatsHandler{}),
+	// grpc.ChainStreamInterceptor(logging.StreamServerInterceptor(interceptorLogger(logger), opts...)),
+	// grpc.ChainUnaryInterceptor(logging.UnaryServerInterceptor(interceptorLogger(logger), opts...)),
+	// grpc.StatsHandler(&register.StatsHandler{}),
 	)
 
 	pb.RegisterBroadcastServer(grpcServer, s.ClientService)
@@ -157,6 +159,8 @@ func StartSimulationEnine() {
 
 	wg.Wait()
 	se.Storage.CloseDb()
+	se.ClientService.LogStorage.CloseDb()
+
 }
 
 // adaptador para slog (la lib es agnóstica del logger)

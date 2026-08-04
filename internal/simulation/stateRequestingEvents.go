@@ -2,7 +2,6 @@ package simulation
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/utils"
@@ -22,7 +21,7 @@ func (s *StateRequestingEvents) StartState() {
 	}
 
 	s.SimulationEngine.Orchestrator.NextEpoch()
-	log.Printf("State: %v", s.GetStateName())
+	// log.Printf("State: %v", s.GetStateName())
 	_ = s.SendMsg(nil, nil)
 }
 

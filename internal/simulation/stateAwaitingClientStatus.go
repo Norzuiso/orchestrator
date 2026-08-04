@@ -2,7 +2,6 @@ package simulation
 
 import (
 	"fmt"
-	"log"
 	"slices"
 
 	"github.com/Norzuiso/orchestrator/internal/models"
@@ -15,7 +14,7 @@ type StateAwaitingClientStatus struct {
 }
 
 func (s *StateAwaitingClientStatus) StartState() {
-	log.Printf("State: %v", s.GetStateName())
+	// log.Printf("State: %v", s.GetStateName())
 }
 
 func (s *StateAwaitingClientStatus) GetStateName() string {

@@ -2,7 +2,6 @@ package simulation
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/utils"
@@ -14,7 +13,7 @@ type StateWaitingConnections struct {
 }
 
 func (s *StateWaitingConnections) StartState() {
-	log.Printf("State: %v", s.GetStateName())
+	// log.Printf("State: %v", s.GetStateName())
 }
 
 func (s *StateWaitingConnections) GetStateName() string {

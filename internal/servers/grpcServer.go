@@ -8,6 +8,7 @@ import (
 
 	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/orchestrator"
+	"github.com/Norzuiso/orchestrator/internal/storage"
 	"github.com/Norzuiso/orchestrator/internal/utils"
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
 )
@@ -20,12 +21,14 @@ type ClientToClientService struct {
 
 	StateProvider   utils.StateProvider
 	StorageProvider utils.StorageProvider
+	LogStorage      *storage.LogStorage
 }
 
 func NewClientToClientService(o *orchestrator.Orchestrator) *ClientToClientService {
 	return &ClientToClientService{
 		ClientStreams: make(map[int64]*models.Connection),
 		Orchestrator:  o,
+		LogStorage:    &storage.LogStorage{},
 	}
 }
 
@@ -107,8 +110,11 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 				<-done
 				continue
 			}
-			log.Println("Read: ", msg.String())
-
+			log.Println("Read: ", msg)
+			err = c.LogStorage.LogMessage("Read", msg, c.StateProvider.GetCurrentState().GetStateName())
+			if err != nil {
+				log.Println(err)
+			}
 			if err = c.StateProvider.GetCurrentState().ReadMsg(msg, c.ClientStreams[senderId]); err != nil {
 				done := make(chan error, 1)
 				conn.Outbox <- models.OutboxItem{Msg: utils.BuildPhaseErrorMsg(msg, err), Done: done}
@@ -128,7 +134,12 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 				c.ClientStreams[senderId].ErrCh <- err
 				return
 			}
-			log.Println("Send: ", item.Msg.String())
+			log.Println("Send: ", item.Msg)
+			err = c.LogStorage.LogMessage("Send", item.Msg, c.StateProvider.GetCurrentState().GetStateName())
+
+			if err != nil {
+				log.Println(err)
+			}
 		}
 	}()
 	<-c.ClientStreams[senderId].ErrCh
@@ -158,7 +169,6 @@ func openStream(stream pb.Broadcast_ClientToClientMessageServer, c *ClientToClie
 		Epoch:       c.Orchestrator.Epoch,
 		Seed:        c.Orchestrator.GetClientSeed(senderId),
 	})
-	log.Println(msg.String())
 
 	c.ClientStreams[senderId].ErrCh = make(chan error, 2)
 	return senderId, conn, nil

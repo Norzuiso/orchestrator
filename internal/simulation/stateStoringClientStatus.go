@@ -1,8 +1,6 @@
 package simulation
 
 import (
-	"log"
-
 	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/utils"
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
@@ -13,7 +11,7 @@ type StateStoringClientStatus struct {
 }
 
 func (s *StateStoringClientStatus) StartState() {
-	log.Printf("State: %v", s.GetStateName())
+	// log.Printf("State: %v", s.GetStateName())
 }
 
 func (s *StateStoringClientStatus) GetStateName() string {
