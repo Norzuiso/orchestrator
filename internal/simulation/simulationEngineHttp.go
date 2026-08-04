@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
 
@@ -23,7 +24,8 @@ func (s *SimulationEngine) HttpConnect() {
 
 	// clients
 	http.HandleFunc("GET /client/active", s.GetActiveClients)
-	http.HandleFunc("GET /client/client-to-client", s.GetAllClientToClientConnection)
+	http.HandleFunc("GET /client/clients-to-clients", s.GetAllClientToClientConnection)
+	http.HandleFunc("GET /client/client-to-client", s.GetClientToClientConnection)
 
 	// simulation
 	http.HandleFunc("POST /simulation/start", s.StartSimulation)
@@ -78,6 +80,26 @@ func (s *SimulationEngine) GetAllClientToClientConnection(w http.ResponseWriter,
 }
 
 func (s *SimulationEngine) GetClientToClientConnection(w http.ResponseWriter, req *http.Request) {
+	idStr := req.URL.Query().Get("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+	}
+
+	clientToClients, err := s.Storage.ClientToClientGet(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	data, err := protojson.Marshal(clientToClients)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 
 }
 
