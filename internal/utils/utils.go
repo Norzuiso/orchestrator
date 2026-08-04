@@ -20,3 +20,8 @@ func Int64ToBytes(i int64) []byte {
 	binary.BigEndian.PutUint64(b, uint64(i))
 	return b
 }
+
+func BytesToInt64(i []byte) int64 {
+	b := binary.BigEndian.Uint64(i)
+	return int64(b)
+}

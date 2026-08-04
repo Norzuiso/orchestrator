@@ -50,3 +50,30 @@ func (s *Storage) ClientToClientGet(id int64) (*pb.ClientConnectionList, error) 
 	})
 	return conns, err
 }
+
+func (s *Storage) GetAllClientToClientConnection() ([]*pb.RegisterConnectionRequest, error) {
+	var cTocConns []*pb.RegisterConnectionRequest
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(utils.BucketClientToClient))
+		if bucket == nil {
+			return fmt.Errorf("Bucket does not exist")
+		}
+		err := bucket.ForEach(func(k, v []byte) error {
+			id := utils.BytesToInt64(k)
+			clientconnections, err := s.ClientToClientGet(id)
+			if err != nil {
+				return err
+			}
+
+			conn := &pb.RegisterConnectionRequest{
+				FromId: id,
+				To:     clientconnections,
+			}
+			cTocConns = append(cTocConns, conn)
+			return nil
+		})
+		return err
+	})
+
+	return cTocConns, err
+}

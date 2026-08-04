@@ -11,16 +11,21 @@ import (
 	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/utils"
 	"google.golang.org/protobuf/encoding/protojson"
+	_ "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func (s *SimulationEngine) HttpConnect() {
+	// msg
 	http.HandleFunc("POST /msg/all", s.SendMsgToAllClients)           // TODO
 	http.HandleFunc("POST /msg/client", s.SendMsgToClient)            // TODO
 	http.HandleFunc("POST /msg/clients/list", s.SendMsgToClientsList) // TODO
 	http.HandleFunc("POST /msg/client-to-client", s.RegisterClientToClientconnection)
 
-	http.HandleFunc("GET /clients/active", s.GetActiveClients)
+	// clients
+	http.HandleFunc("GET /client/active", s.GetActiveClients)
+	http.HandleFunc("GET /client/client-to-client", s.GetAllClientToClientConnection)
 
+	// simulation
 	http.HandleFunc("POST /simulation/start", s.StartSimulation)
 	http.HandleFunc("GET /simulation/pause", s.StopSimulation) // TODO
 	http.HandleFunc("GET /simulation/state/waiting-connections", s.WaitingConnections)
@@ -39,14 +44,37 @@ func (s *SimulationEngine) HttpConnect() {
 func (s *SimulationEngine) GetActiveClients(w http.ResponseWriter, req *http.Request) {
 	activeClients, err := s.Storage.GetAllActiveClients()
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 	}
+	w.Header().Set("Content-Type", "application/json")
 
 	json.NewEncoder(w).Encode(activeClients)
 }
 
 func (s *SimulationEngine) GetAllClientToClientConnection(w http.ResponseWriter, req *http.Request) {
+	clientToClients, err := s.Storage.GetAllClientToClientConnection()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte("["))
+
+	for i, ctc := range clientToClients {
+		if i > 0 {
+			w.Write([]byte(","))
+		}
+		data, err := protojson.Marshal(ctc)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(data)
+	}
+
+	w.Write([]byte("]"))
 }
 
 func (s *SimulationEngine) GetClientToClientConnection(w http.ResponseWriter, req *http.Request) {
