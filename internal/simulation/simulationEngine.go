@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/Norzuiso/orchestrator/internal/models"
+	"github.com/Norzuiso/orchestrator/internal/storage"
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
 
 	"github.com/Norzuiso/orchestrator/internal/orchestrator"
@@ -22,6 +23,7 @@ import (
 type SimulationEngine struct {
 	ClientService *servers.ClientToClientService
 	Orchestrator  *orchestrator.Orchestrator
+	Storage       *storage.Storage
 
 	StateAwaitingClientStatus   utils.State
 	StateAwaitingEventResponses utils.State
@@ -49,16 +51,19 @@ func (s *SimulationEngine) NextState() {
 func NewSimulationEngine() *SimulationEngine {
 
 	s := &SimulationEngine{}
+	s.Storage = &storage.Storage{}
+	s.Storage.OpenDb()
 
 	// Orchestrator
-	o := orchestrator.NewOrquestrator(1004) // TODO - Change the seed value to get it from config
+	orch := orchestrator.NewOrquestrator(1004) // TODO - Change the seed value to get it from config
 	clientService := &servers.ClientToClientService{
-		ClientStreams: make(map[int64]*models.Connection),
-		Orchestrator:  o,
-		StateProvider: s,
+		ClientStreams:   make(map[int64]*models.Connection),
+		Orchestrator:    orch,
+		StateProvider:   s,
+		StorageProvider: s.Storage,
 	}
 	s.ClientService = clientService
-	s.Orchestrator = o
+	s.Orchestrator = orch
 
 	stateWaitingConnections := NewStateWaitingConnections(s)
 
@@ -91,9 +96,9 @@ func (s *SimulationEngine) GrpcConnect() {
 	// 	),
 	// }
 	grpcServer := grpc.NewServer(
-	// grpc.ChainStreamInterceptor(logging.StreamServerInterceptor(interceptorLogger(logger), opts...)),
-	// grpc.ChainUnaryInterceptor(logging.UnaryServerInterceptor(interceptorLogger(logger), opts...)),
-	// grpc.StatsHandler(&register.StatsHandler{}),
+		// grpc.ChainStreamInterceptor(logging.StreamServerInterceptor(interceptorLogger(logger), opts...)),
+		// grpc.ChainUnaryInterceptor(logging.UnaryServerInterceptor(interceptorLogger(logger), opts...)),
+		// grpc.StatsHandler(&register.StatsHandler{}),
 	)
 
 	pb.RegisterBroadcastServer(grpcServer, s.ClientService)
@@ -151,6 +156,7 @@ func StartSimulationEnine() {
 	log.Println("Listening for HTTP on 127.0.0.1:8090")
 
 	wg.Wait()
+	se.Storage.CloseDb()
 }
 
 // adaptador para slog (la lib es agnóstica del logger)

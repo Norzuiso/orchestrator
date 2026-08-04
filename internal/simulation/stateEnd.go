@@ -31,8 +31,7 @@ func (s *StateEnd) SendMsg(msg *pb.Message, conn *models.Connection) error {
 	for _, client := range clientStreams {
 		client.ErrCh <- fmt.Errorf("End of simulation")
 	}
-	s.SimulationEngine.Orchestrator.ClientsRequest = make([]int64, 0)
-	s.SimulationEngine.Orchestrator.ClientsResponse = map[int64]*pb.Message{}
+	s.SimulationEngine.Orchestrator.ResetClientsRequest()
 	return nil
 }
 

@@ -26,9 +26,8 @@ func (s *StateRequestingClientStatus) ReadMsg(msg *pb.Message, conn *models.Conn
 }
 
 func (s *StateRequestingClientStatus) SendMsg(msg *pb.Message, conn *models.Connection) error {
-	clientStreams := s.SimulationEngine.ClientService.ClientStreams
-	for id, client := range clientStreams {
-		s.SimulationEngine.Orchestrator.ClientsRequest = append(s.SimulationEngine.Orchestrator.ClientsRequest, id)
+	for id, client := range s.SimulationEngine.ClientService.ClientStreams {
+		s.SimulationEngine.Orchestrator.AppendClientsRequest(id)
 		done := make(chan error, 1)
 		client.Outbox <- models.OutboxItem{Msg: &pb.Message{
 			SenderId:    0,

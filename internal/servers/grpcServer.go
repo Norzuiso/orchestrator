@@ -2,7 +2,6 @@ package servers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -16,10 +15,11 @@ import (
 type ClientToClientService struct {
 	pb.UnimplementedBroadcastServer
 
-	ClientStreams map[int64]*models.Connection
+	ClientStreams map[int64]*models.Connection // TODO use mux
 	Orchestrator  *orchestrator.Orchestrator
 
-	StateProvider utils.StateProvider
+	StateProvider   utils.StateProvider
+	StorageProvider utils.StorageProvider
 }
 
 func NewClientToClientService(o *orchestrator.Orchestrator) *ClientToClientService {
@@ -32,10 +32,6 @@ func NewClientToClientService(o *orchestrator.Orchestrator) *ClientToClientServi
 func (c *ClientToClientService) ConnectClient(ctx context.Context, req *pb.ConnectionRequest) (*pb.ConnectionResponse, error) {
 	client := req.GetClient()
 
-	if client.GetId() == 0 {
-		client.Id = int64(len(c.Orchestrator.ActiveClients) + 1)
-	}
-
 	if client.GetName() == "" {
 		client.Name = strconv.FormatInt(client.Id, 10)
 	}
@@ -43,28 +39,26 @@ func (c *ClientToClientService) ConnectClient(ctx context.Context, req *pb.Conne
 	if client.GetSeed() == 0 {
 		client.Seed = c.Orchestrator.GetClientSeed(client.Id)
 	}
+	clientResponse, err := c.StorageProvider.ActiveClientsSave(client)
+	if err != nil {
+		return nil, err
+	}
 
-	c.Orchestrator.ActiveClients[client.Id] = client
-	c.Orchestrator.ClientToClientConnection[client.Id] = &pb.ClientConnectionList{}
-
-	res := &pb.ConnectionResponse{Client: client}
-
+	res := &pb.ConnectionResponse{Client: clientResponse}
 	return res, nil
 }
 
 func (c *ClientToClientService) RegisterConnection(ctx context.Context, req *pb.RegisterConnectionRequest) (*pb.RegisterConnectionResponse, error) {
-	if _, ok := c.Orchestrator.ActiveClients[req.FromId]; !ok {
-		return nil, errors.New("Client not foud on active clients")
-	}
-	if _, ok := c.Orchestrator.ClientToClientConnection[req.FromId]; !ok {
-		return nil, errors.New("Client not foud on cliet to client connections clients")
+
+	if _, err := c.StorageProvider.ActiveClientsGet(req.FromId); err != nil {
+		return nil, err
 	}
 
-	c.Orchestrator.ClientToClientConnection[req.FromId] = req.To
-	log.Println(c.Orchestrator.ClientToClientConnection)
-	res := &pb.RegisterConnectionResponse{Response: "Connections created"}
-
-	return res, nil
+	err := c.StorageProvider.ClientToClientSave(req.GetFromId(), req.To)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.RegisterConnectionResponse{Response: "Connections created"}, nil
 }
 
 func (c *ClientToClientService) validateFirstMsg(msg *pb.Message) error {

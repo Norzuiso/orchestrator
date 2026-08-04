@@ -37,7 +37,7 @@ func (s *StateRequestingEvents) ReadMsg(msg *pb.Message, conn *models.Connection
 func (s *StateRequestingEvents) SendMsg(msg *pb.Message, conn *models.Connection) error {
 	clientStreams := s.SimulationEngine.ClientService.ClientStreams
 	for id, client := range clientStreams {
-		s.SimulationEngine.Orchestrator.ClientsRequest = append(s.SimulationEngine.Orchestrator.ClientsRequest, id)
+		s.SimulationEngine.Orchestrator.AppendClientsRequest(id)
 		done := make(chan error, 1)
 		client.Outbox <- models.OutboxItem{Msg: &pb.Message{
 			SenderId:    0,

@@ -24,32 +24,20 @@ func (s *StateAwaitingClientStatus) GetStateName() string {
 
 func (s *StateAwaitingClientStatus) ReadMsg(msg *pb.Message, conn *models.Connection) error {
 
-	clientEventsRequest := s.SimulationEngine.Orchestrator.ClientsRequest
-	clientEventsResponse := s.SimulationEngine.Orchestrator.ClientsResponse
+	_, err := s.SimulationEngine.Storage.ClientsResponseGet(msg.SenderId)
+	if err != nil {
+		return err
+	}
 
 	// Check if orchestrator is waiting a response from client
-	if !slices.Contains(clientEventsRequest, msg.SenderId) {
+	if !slices.Contains(s.SimulationEngine.Orchestrator.GetClientsRequest(), msg.SenderId) {
 		return fmt.Errorf("No event expected from client: %v", msg.SenderId)
 	}
 
-	// check if client has a response
-	if _, ok := clientEventsResponse[msg.SenderId]; ok {
-		return fmt.Errorf("Client %v, already has an status register", msg.SenderId)
-	}
+	s.SimulationEngine.Storage.ClientsResponseSave(msg.SenderId, msg)
 
-	// remove clientid from the list of requested clients
-	clientEventsRequest = slices.DeleteFunc(clientEventsRequest, func(id int64) bool {
-		return id == msg.SenderId
-	})
-
-	// store msg from client into the events response
-	clientEventsResponse[msg.SenderId] = msg
-
-	s.SimulationEngine.Orchestrator.ClientsRequest = clientEventsRequest
-	s.SimulationEngine.Orchestrator.ClientsResponse = clientEventsResponse
-
-	// if we dont have any client pending change to the next state
-	if len(s.SimulationEngine.Orchestrator.ClientsRequest) == 0 {
+	// if we dont have any pending msg to read from a client change to the next state
+	if s.SimulationEngine.Orchestrator.RemoveFromRequest(msg.SenderId) {
 		s.SimulationEngine.NextState()
 	}
 	return nil

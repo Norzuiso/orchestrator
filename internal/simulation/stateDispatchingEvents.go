@@ -27,20 +27,30 @@ func (s *StateDispatchingEvents) ReadMsg(msg *pb.Message, conn *models.Connectio
 }
 
 func (s *StateDispatchingEvents) SendMsg(msg *pb.Message, conn *models.Connection) error {
-	responses := s.SimulationEngine.Orchestrator.ClientsResponse
-	for id, msgRes := range responses {
-		connections := s.SimulationEngine.Orchestrator.ClientToClientConnection[id].GetConnections()
-		for _, connection := range connections {
-			msgRes.Epoch = s.SimulationEngine.Orchestrator.Epoch
+	responses := s.SimulationEngine.Orchestrator.GetClientsResponse()
 
-			msgRes.MessageType = pb.MessageType_MESSAGE_TYPE_EVENT_DISPATCH
+	for _, senderId := range responses {
+		conns, err := s.SimulationEngine.Storage.ClientToClientGet(senderId)
+		if err != nil {
+			return err
+		}
+		msgRes, err := s.SimulationEngine.Storage.ClientsResponseGet(senderId)
+		if err != nil {
+			return err
+		}
+		msgRes.Epoch = s.SimulationEngine.Orchestrator.Epoch
+		msgRes.MessageType = pb.MessageType_MESSAGE_TYPE_EVENT_DISPATCH
+
+		for _, connection := range conns.Connections {
+
 			msgRes.Attributes = connection.Attributes
+
 			done := make(chan error, 1)
 			s.SimulationEngine.ClientService.ClientStreams[connection.ToId].Outbox <- models.OutboxItem{Msg: msgRes, Done: done}
 			<-done
 		}
 	}
-	s.SimulationEngine.Orchestrator.ClientsResponse = make(map[int64]*pb.Message)
+	s.SimulationEngine.Orchestrator.ResetClientsResponse()
 	s.SimulationEngine.NextState()
 	return nil
 }
