@@ -1,6 +1,7 @@
 package simulation
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,8 @@ func (s *SimulationEngine) HttpConnect() {
 	http.HandleFunc("POST /msg/clients/list", s.SendMsgToClientsList) // TODO
 	http.HandleFunc("POST /msg/client-to-client", s.RegisterClientToClientconnection)
 
+	http.HandleFunc("GET /clients/active", s.GetActiveClients)
+
 	http.HandleFunc("POST /simulation/start", s.StartSimulation)
 	http.HandleFunc("GET /simulation/pause", s.StopSimulation) // TODO
 	http.HandleFunc("GET /simulation/state/waiting-connections", s.WaitingConnections)
@@ -32,8 +35,14 @@ func (s *SimulationEngine) HttpConnect() {
 		panic(err)
 	}
 }
-func (s *SimulationEngine) GetActiveClients(w http.ResponseWriter, req *http.Request) {
 
+func (s *SimulationEngine) GetActiveClients(w http.ResponseWriter, req *http.Request) {
+	activeClients, err := s.Storage.GetAllActiveClients()
+	if err != nil {
+		w.Write([]byte(err.Error()))
+	}
+
+	json.NewEncoder(w).Encode(activeClients)
 }
 
 func (s *SimulationEngine) GetAllClientToClientConnection(w http.ResponseWriter, req *http.Request) {

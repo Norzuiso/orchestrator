@@ -55,3 +55,27 @@ func (s *Storage) ActiveClientsGet(id int64) (*pb.Client, error) {
 	})
 	return client, err
 }
+
+func (s *Storage) GetAllActiveClients() ([]*pb.Client, error) {
+	clients := make([]*pb.Client, 0)
+	err := s.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(utils.BucketClients))
+		if bucket == nil {
+			return fmt.Errorf("Bucket does not exist")
+		}
+
+		bucket.ForEach(func(k, v []byte) error {
+			client := &pb.Client{}
+
+			if err := proto.Unmarshal(v, client); err != nil {
+				return err
+			}
+			clients = append(clients, client)
+			return nil
+		})
+
+		return nil
+	})
+
+	return clients, err
+}
