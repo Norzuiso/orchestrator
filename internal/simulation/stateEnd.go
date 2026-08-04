@@ -27,8 +27,19 @@ func (s *StateEnd) ReadMsg(msg *pb.Message, conn *models.Connection) error {
 
 func (s *StateEnd) SendMsg(msg *pb.Message, conn *models.Connection) error {
 	clientStreams := s.SimulationEngine.ClientService.ClientStreams
-	for _, client := range clientStreams {
-		client.ErrCh <- fmt.Errorf("End of simulation")
+	for id, client := range clientStreams {
+		done := make(chan error, 1)
+
+		client.Outbox <- models.OutboxItem{Msg: &pb.Message{
+			SenderId:    0,
+			Epoch:       s.SimulationEngine.Orchestrator.GetEpoch(),
+			MessageType: pb.MessageType_MESSAGE_TYPE_DEFAULT,
+			Content:     "End of simulation",
+			Seed:        s.SimulationEngine.Orchestrator.GetClientSeed(id),
+		}, Done: done}
+		<-done
+
+		//client.ErrCh <- fmt.Errorf("End of simulation")
 	}
 	s.SimulationEngine.Orchestrator.ResetClientsRequest()
 	return nil

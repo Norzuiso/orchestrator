@@ -11,8 +11,8 @@ type Storage struct {
 	db *bolt.DB
 }
 
-func (s *Storage) OpenDb() {
-	db, err := bolt.Open("my.db", 0600, &bolt.Options{Timeout: 5 * time.Second})
+func (s *Storage) OpenDb(path string) {
+	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: 5 * time.Second})
 	if err != nil {
 		log.Fatal(err)
 	}
