@@ -15,28 +15,44 @@ import (
 	_ "google.golang.org/protobuf/types/known/wrapperspb"
 )
 
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *SimulationEngine) HttpConnect() {
+	mux := http.NewServeMux()
 	// msg
-	http.HandleFunc("POST /msg/all", s.SendMsgToAllClients)           // TODO
-	http.HandleFunc("POST /msg/client", s.SendMsgToClient)            // TODO
-	http.HandleFunc("POST /msg/clients/list", s.SendMsgToClientsList) // TODO
-	http.HandleFunc("POST /msg/client-to-client", s.RegisterClientToClientconnection)
+	mux.HandleFunc("POST /msg/all", s.SendMsgToAllClients)           // TODO
+	mux.HandleFunc("POST /msg/client", s.SendMsgToClient)            // TODO
+	mux.HandleFunc("POST /msg/clients/list", s.SendMsgToClientsList) // TODO
+	mux.HandleFunc("POST /msg/client-to-client", s.RegisterClientToClientconnection)
 
 	// clients
-	http.HandleFunc("GET /client/active", s.GetActiveClients)
-	http.HandleFunc("GET /client/clients-to-clients", s.GetAllClientToClientConnection)
-	http.HandleFunc("GET /client/client-to-client", s.GetClientToClientConnection)
+	mux.HandleFunc("GET /client/active", s.GetActiveClients)
+	mux.HandleFunc("GET /client/clients-to-clients", s.GetAllClientToClientConnection)
+	mux.HandleFunc("GET /client/client-to-client", s.GetClientToClientConnection)
 
 	// simulation
-	http.HandleFunc("POST /simulation/start", s.StartSimulation)
-	http.HandleFunc("GET /simulation/pause", s.StopSimulation) // TODO
-	http.HandleFunc("GET /simulation/state/waiting-connections", s.WaitingConnections)
-	http.HandleFunc("GET /simulation/end", s.HttpEndSimulation)
+	mux.HandleFunc("POST /simulation/start", s.StartSimulation)
+	mux.HandleFunc("GET /simulation/pause", s.StopSimulation) // TODO
+	mux.HandleFunc("GET /simulation/state/waiting-connections", s.WaitingConnections)
+	mux.HandleFunc("GET /simulation/end", s.HttpEndSimulation)
 
-	http.HandleFunc("GET /simulation/next-phase", s.NextStateHttp) // TODO
-	http.HandleFunc("GET /simulation/next-epoch", s.NextEpoch)
+	mux.HandleFunc("GET /simulation/next-phase", s.NextStateHttp) // TODO
+	mux.HandleFunc("GET /simulation/next-epoch", s.NextEpoch)
 
-	err := http.ListenAndServe(":8090", nil) // TODO - Port Get it from config
+	err := http.ListenAndServe(":8090", corsMiddleware(mux)) // TODO - Port Get it from config
 
 	if err != nil {
 		panic(err)
