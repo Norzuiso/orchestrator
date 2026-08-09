@@ -142,8 +142,21 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 			}
 		}
 	}()
-	<-c.ClientStreams[senderId].ErrCh
-	delete(c.ClientStreams, senderId)
+
+	ctx := stream.Context()
+	select {
+	// Detect close connection
+	case <-ctx.Done():
+		err = c.LogStorage.LogMessage("Stream closed", &pb.Message{SenderId: senderId, Content: ctx.Err().Error()}, c.StateProvider.GetCurrentState().GetStateName())
+		if err != nil {
+			log.Println(err)
+		}
+		delete(c.ClientStreams, senderId)
+	case <-c.ClientStreams[senderId].ErrCh:
+		delete(c.ClientStreams, senderId)
+		log.Printf("Sender: %v error. ERR: %v", senderId, ctx.Err())
+
+	}
 
 	return nil
 }
@@ -162,14 +175,19 @@ func openStream(stream pb.Broadcast_ClientToClientMessageServer, c *ClientToClie
 	conn := &models.Connection{Stream: stream, Outbox: make(chan models.OutboxItem)}
 	c.ClientStreams[senderId] = conn
 
-	stream.Send(&pb.Message{
+	msgResponse := &pb.Message{
 		SenderId:    0,
 		MessageType: pb.MessageType_MESSAGE_TYPE_DEFAULT,
 		Content:     "Connection created",
 		Epoch:       c.Orchestrator.Epoch,
 		Seed:        c.Orchestrator.GetClientSeed(senderId),
-	})
+	}
+	stream.Send(msgResponse)
 
 	c.ClientStreams[senderId].ErrCh = make(chan error, 2)
+	err = c.LogStorage.LogMessage("Stream open", msgResponse, c.StateProvider.GetCurrentState().GetStateName())
+	if err != nil {
+		log.Println(err)
+	}
 	return senderId, conn, nil
 }

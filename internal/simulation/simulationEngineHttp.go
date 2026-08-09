@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
@@ -42,6 +44,7 @@ func (s *SimulationEngine) HttpConnect() {
 	mux.HandleFunc("GET /client/active", s.GetActiveClients)
 	mux.HandleFunc("GET /client/clients-to-clients", s.GetAllClientToClientConnection)
 	mux.HandleFunc("GET /client/client-to-client", s.GetClientToClientConnection)
+	mux.HandleFunc("GET /client/open-streams", s.GetClientIdsWithOpenStreams)
 
 	// simulation
 	mux.HandleFunc("POST /simulation/start", s.StartSimulation)
@@ -93,6 +96,12 @@ func (s *SimulationEngine) GetAllClientToClientConnection(w http.ResponseWriter,
 	}
 
 	w.Write([]byte("]"))
+}
+
+func (s *SimulationEngine) GetClientIdsWithOpenStreams(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	keys := slices.Collect(maps.Keys(s.ClientService.ClientStreams))
+	json.NewEncoder(w).Encode(keys)
 }
 
 func (s *SimulationEngine) GetClientToClientConnection(w http.ResponseWriter, req *http.Request) {
