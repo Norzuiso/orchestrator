@@ -29,12 +29,10 @@ func (m *MsgHandler) SendMsg(msg *pb.Message) error {
 
 func (m *MsgHandler) SendMsgContent(content string) error {
 	m.Message.Content = content
-	m.SenderId = 0
 	return m.stream.Send(m.Message)
 }
 
 func (m *MsgHandler) SendPhaseError(content string) {
-	m.SenderId = 0
 	m.MessageType = pb.MessageType_MESSAGE_TYPE_ERROR_PHASE
 	m.Content = content
 }

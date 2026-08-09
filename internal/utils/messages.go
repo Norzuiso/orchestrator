@@ -1,0 +1,20 @@
+package utils
+
+import (
+	"fmt"
+
+	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
+)
+
+func BuildErrorMsg(msg *pb.Message, err error) *pb.Message {
+	msg.Content = fmt.Sprintf("Error: %v", err)
+	msg.MessageType = pb.MessageType_MESSAGE_TYPE_ERROR
+	msg.SenderId = 0
+	return msg
+}
+func BuildPhaseErrorMsg(msg *pb.Message, err error) *pb.Message {
+	msg.Content = fmt.Sprintf("Client: %v -> Error: %v", msg.SenderId, err)
+	msg.MessageType = pb.MessageType_MESSAGE_TYPE_ERROR_PHASE
+	msg.SenderId = 0
+	return msg
+}

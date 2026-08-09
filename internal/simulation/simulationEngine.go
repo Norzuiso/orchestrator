@@ -1,71 +1,76 @@
 package simulation
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"log/slog"
 	"net"
-	"net/http"
 	"sync"
 
+	"github.com/Norzuiso/orchestrator/internal/models"
+	"github.com/Norzuiso/orchestrator/internal/storage"
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
 
 	"github.com/Norzuiso/orchestrator/internal/orchestrator"
 	"github.com/Norzuiso/orchestrator/internal/servers"
 	"github.com/Norzuiso/orchestrator/internal/utils"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"google.golang.org/grpc"
 )
 
 type SimulationEngine struct {
-	GrpcServer   *servers.ClientToClientService
-	Orchestrator *orchestrator.Orchestrator
+	ClientService *servers.ClientToClientService
+	Orchestrator  *orchestrator.Orchestrator
+	Storage       *storage.Storage
 
 	StateAwaitingClientStatus   utils.State
 	StateAwaitingEventResponses utils.State
 	StateCollectingEvents       utils.State
 	StateDispatchingEvents      utils.State
-	StateFinishing              utils.State
+	StateEnd                    utils.State
 	StatePaused                 utils.State
 	StateRequestingClientStatus utils.State
 	StateRequestingEvents       utils.State
 	StateStoringClientStatus    utils.State
 	StateWaitingConnections     utils.State
 
-	currentState utils.State
+	CurrentState utils.State
 }
 
-func NewSimulationEngine(orchestrator *orchestrator.Orchestrator,
-	clientToClientService *servers.ClientToClientService) *SimulationEngine {
-	s := &SimulationEngine{
-		GrpcServer:   clientToClientService,
-		Orchestrator: orchestrator,
+func (s *SimulationEngine) EndEpoch() {
+	s.ClientService.LogStorage.LogMessage(fmt.Sprintf("EndEpoch: %v", s.Orchestrator.SeedEpoch), &pb.Message{Epoch: s.Orchestrator.Epoch}, fmt.Sprintf("EndEpoch: %v", s.Orchestrator.SeedEpoch))
+	if !s.Orchestrator.StepsMode {
+		s.StartEpoch()
+	}
+}
+
+func (s *SimulationEngine) StartEpoch() {
+	if s.Orchestrator.Epoch == s.Orchestrator.MaxOfEpochs {
+		s.CurrentState = s.StateEnd
+		s.ClientService.LogStorage.LogMessage("End of simulation", &pb.Message{Epoch: s.Orchestrator.Epoch}, "End of simulation")
+		return
 	}
 
-	stateWaitingconnections := NewStateWaitingConnections(s)
-
-	s.SetState(stateWaitingconnections)
-	s.StateWaitingConnections = stateWaitingconnections
-	s.StateAwaitingClientStatus = NewStateAwaitingClientStatus(s)
-	s.StateAwaitingEventResponses = NewStateAwaitingClientStatus(s)
-	s.StateCollectingEvents = NewStateCollectingEvents(s)
-	s.StateDispatchingEvents = NewStateDispatchingEvents(s)
-	s.StateFinishing = NewStateFinishing(s)
-	s.StatePaused = NewStatePaused(s)
-	s.StateRequestingClientStatus = NewStateRequestingClientStatus(s)
-	s.StateRequestingEvents = NewStateRequestingEvents(s)
-	s.StateStoringClientStatus = NewStateStoringClientStatus(s)
-
-	return s
+	s.Orchestrator.NextEpoch()
+	s.ClientService.LogStorage.LogMessage(fmt.Sprintf("StartEpoch: %v", s.Orchestrator.SeedEpoch), &pb.Message{Epoch: s.Orchestrator.Epoch}, fmt.Sprintf("StartEpoch: %v", s.Orchestrator.SeedEpoch))
+	s.CurrentState = s.StateRequestingEvents
+	s.CurrentState.StartState()
 }
 
-func (s *SimulationEngine) SetState(state utils.State) {
-	s.currentState = state
+func (s *SimulationEngine) GetCurrentState() utils.State {
+	return s.CurrentState
+}
+
+func (s *SimulationEngine) NextState() {
+	s.CurrentState, _ = s.CurrentState.GetNextState()
+	s.CurrentState.StartState()
+}
+
+func (s *SimulationEngine) EndSimulation() {
+	s.CurrentState = s.StateEnd
+	s.CurrentState.StartState()
+
 }
 
 func (s *SimulationEngine) GrpcConnect() {
-
 	// GRPC server logging
 	// logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	// opts := []logging.Option{
@@ -77,12 +82,16 @@ func (s *SimulationEngine) GrpcConnect() {
 	// 	),
 	// }
 	grpcServer := grpc.NewServer(
-	// grpc.ChainStreamInterceptor(logging.StreamServerInterceptor(interceptorLogger(logger), opts...)),
-	// grpc.ChainUnaryInterceptor(logging.UnaryServerInterceptor(interceptorLogger(logger), opts...)),
+	// grpc.ChainStreamInterceptor(logging.StreamServerInterceptor(logging.LoggerFunc(func(ctx context.Context, lvl logging.Level, msg string, fields ...any) {
+	//	l.Log(ctx, slog.Level(lvl), msg, fields...)
+	//}), opts...)),
+	// grpc.ChainUnaryInterceptor(logging.UnaryServerInterceptor(logging.LoggerFunc(func(ctx context.Context, lvl logging.Level, msg string, fields ...any) {
+	//		l.Log(ctx, slog.Level(lvl), msg, fields...)
+	//, opts...)),
 	// grpc.StatsHandler(&register.StatsHandler{}),
 	)
 
-	pb.RegisterBroadcastServer(grpcServer, s.GrpcServer)
+	pb.RegisterBroadcastServer(grpcServer, s.ClientService)
 
 	// run server
 	listener, err := net.Listen("tcp", ":8080") // TODO - Change port to get it from config
@@ -97,24 +106,40 @@ func (s *SimulationEngine) GrpcConnect() {
 	}
 }
 
-func (s *SimulationEngine) HttpConnect() {
-	http.HandleFunc("POST /msg/all", s.SendMsgToAllClients)
-	http.HandleFunc("POST /msg/client", s.SendMsgToClient)
-	http.HandleFunc("POST /msg/clients/list", s.SendMsgToClientsList)
+func NewSimulationEngine(seed int64) *SimulationEngine {
 
-	http.HandleFunc("POST /simulation/start", s.StartSimulation)
-	http.HandleFunc("GET /simulation/pause", s.StopSimulation)
-	http.HandleFunc("GET /simulation/continue", s.StopSimulation)
-	http.HandleFunc("GET /simulation/end", s.StopSimulation)
+	s := &SimulationEngine{}
+	s.Storage = &storage.Storage{}
+	s.Storage.OpenDb("my.db")
 
-	http.HandleFunc("GET /simulation/next-phase", s.NextPhase)
-	http.HandleFunc("GET /simulation/next-epoch", s.NextEpoch)
-
-	err := http.ListenAndServe(":8090", nil) // TODO - Port Get it from config
-
-	if err != nil {
-		panic(err)
+	// Orchestrator
+	orch := orchestrator.NewOrquestrator(seed)
+	clientService := &servers.ClientToClientService{
+		ClientStreams:   make(map[int64]*models.Connection),
+		Orchestrator:    orch,
+		StateProvider:   s,
+		StorageProvider: s.Storage,
+		LogStorage:      &storage.LogStorage{},
 	}
+	s.ClientService = clientService
+	s.Orchestrator = orch
+
+	s.ClientService.LogStorage.OpenDb("log.db")
+
+	s.StateWaitingConnections = NewStateWaitingConnections(s)
+	s.StateAwaitingClientStatus = NewStateAwaitingClientStatus(s)
+	s.StateAwaitingEventResponses = NewStateAwaitingEventResponses(s)
+	s.StateCollectingEvents = NewStateCollectingEvents(s)
+	s.StateDispatchingEvents = NewStateDispatchingEvents(s)
+	s.StateEnd = NewStateEnd(s)
+	s.StatePaused = NewStatePaused(s)
+	s.StateRequestingClientStatus = NewStateRequestingClientStatus(s)
+	s.StateRequestingEvents = NewStateRequestingEvents(s)
+	s.StateStoringClientStatus = NewStateStoringClientStatus(s)
+
+	s.CurrentState = s.StateWaitingConnections
+
+	return s
 }
 
 func (s *SimulationEngine) errorHandler() {
@@ -123,14 +148,7 @@ func (s *SimulationEngine) errorHandler() {
 
 func StartSimulationEnine() {
 
-	// Orchestrator
-	orchestrator := orchestrator.NewOrquestrator()
-	clientToClientService := servers.NewClientToClientService(1001, orchestrator) // TODO - Change the seed value to get it from config
-
-	se := NewSimulationEngine(orchestrator, clientToClientService)
-
-	se.Orchestrator.NextEpoch()
-
+	se := NewSimulationEngine(1004) // TODO - Change the seed value to get it from config
 	wg := sync.WaitGroup{}
 
 	defer se.errorHandler()
@@ -143,11 +161,7 @@ func StartSimulationEnine() {
 	log.Println("Listening for HTTP on 127.0.0.1:8090")
 
 	wg.Wait()
-}
+	se.Storage.CloseDb()
+	se.ClientService.LogStorage.CloseDb()
 
-// adaptador para slog (la lib es agnóstica del logger)
-func interceptorLogger(l *slog.Logger) logging.Logger {
-	return logging.LoggerFunc(func(ctx context.Context, lvl logging.Level, msg string, fields ...any) {
-		l.Log(ctx, slog.Level(lvl), msg, fields...)
-	})
 }

@@ -1,18 +1,46 @@
 package simulation
 
+import (
+	"fmt"
+
+	"github.com/Norzuiso/orchestrator/internal/models"
+	"github.com/Norzuiso/orchestrator/internal/utils"
+	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
+)
+
 type StateWaitingConnections struct {
 	SimulationEngine *SimulationEngine
 }
 
-func (w *StateWaitingConnections) WaitingConnections() error {
+func (s *StateWaitingConnections) StartState() {
+	// log.Printf("State: %v", s.GetStateName())
+}
+
+func (s *StateWaitingConnections) GetStateName() string {
+	return utils.WaitingConnectionsStr
+}
+
+func (s *StateWaitingConnections) ReadMsg(msg *pb.Message, conn *models.Connection) error {
+	conn, ok := s.SimulationEngine.ClientService.ClientStreams[msg.SenderId]
+	if ok {
+		return s.SendMsg(utils.BuildErrorMsg(msg, fmt.Errorf("Client is already connected")), conn)
+	}
 	return nil
 }
 
-func (w *StateWaitingConnections) ReadMsg() error {
+func (s *StateWaitingConnections) SendMsg(msg *pb.Message, conn *models.Connection) error {
+	done := make(chan error, 1)
+	conn.Outbox <- models.OutboxItem{Msg: msg, Done: done}
+	<-done
 	return nil
 }
-func (w *StateWaitingConnections) RequestMsg() error {
-	return nil
+
+func (s *StateWaitingConnections) GetNextState() (utils.State, error) {
+	return NewStateRequestingEvents(s.SimulationEngine), nil
+}
+
+func (s *StateWaitingConnections) IsMsgTypeAllowIt(msg *pb.Message) bool {
+	return msg.GetMessageType() == pb.MessageType_MESSAGE_TYPE_OPEN_STREAM
 }
 
 func NewStateWaitingConnections(s *SimulationEngine) *StateWaitingConnections {
