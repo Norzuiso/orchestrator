@@ -24,6 +24,9 @@ TODO
 5.1. Change phase will go to the next phase. But, should we add a function to change into an specific function? Naaa
 5.2. Possibility to create phases to allow custom behavior. No need it
 
+7. Http function to get all active clients
+8. Http function to get all client to client connection
+9. Http function to get client to client connection by ClientId
 
 10. Orchestrator function to do what each phase its supose to be doing
 10.0. Implement state pattern to orchestrator
@@ -35,24 +38,21 @@ TODO
 10.6. StoringClientStatus
 10.7. Pause
 
+11. Implement an persistent way to store the connections and clients <- done implementing bbolt database
+11.1. Store client id, client address, name, description, seed
+11.2. Store client status that needs to be any since each client has individual business logic  <- done implementing litesql for logs
+11.2.1. Organized by client, epoch. Also, the status has to be storing epoc seed.
+
 13. Http function to next epoch
 14. Http function to next phase
+
+
+18. Create http function to get all client info (id, name, seed, description, client-to-client connections) by id
 ==================================================
 
 6. Http function to get System status
 6.1. What data is need it to return?
 6.2. is this going to call every client or just check the latest record? Latest record sounds good
-
-============= DEPENDENCY ON TODO #11 =============
-7. Http function to get all active clients
-8. Http function to get all client to client connection
-9. Http function to get client to client connection by ClientId
-==================================================
-
-11. Implement an persistent way to store the connections and clients
-11.1. Store client id, client address, name, description, seed
-11.2. Store client status that needs to be any since each client has individual business logic
-11.2.1. Organized by client, epoch. Also, the status has to be storing epoc seed.
 
 12. EMPTY
 
@@ -64,6 +64,7 @@ TODO
 16.3. Check packages, files, functions, var names
 
 17. Add msg response to open stream message type
+
 
 ==================================================
 Errors/BUGS:

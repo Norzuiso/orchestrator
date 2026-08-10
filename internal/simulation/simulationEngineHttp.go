@@ -45,6 +45,7 @@ func (s *SimulationEngine) HttpConnect() {
 	mux.HandleFunc("GET /client/clients-to-clients", s.GetAllClientToClientConnection)
 	mux.HandleFunc("GET /client/client-to-client", s.GetClientToClientConnection)
 	mux.HandleFunc("GET /client/open-streams", s.GetClientIdsWithOpenStreams)
+	mux.HandleFunc("GET /client/info", s.GetClientInfoById)
 
 	// simulation
 	mux.HandleFunc("POST /simulation/start", s.StartSimulation)
@@ -125,7 +126,61 @@ func (s *SimulationEngine) GetClientToClientConnection(w http.ResponseWriter, re
 		return
 	}
 	w.Write(data)
+}
 
+func (s *SimulationEngine) GetClientInfoById(w http.ResponseWriter, req *http.Request) {
+	idStr := req.URL.Query().Get("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+	}
+
+	client, err := s.Storage.ActiveClientsGet(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.Write([]byte(err.Error() + " - Active Clients"))
+		return
+	}
+
+	clientData, err := protojson.Marshal(client)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.Write([]byte(err.Error() + " - protojson.Marshal(client)"))
+		return
+
+	}
+
+	clientToClients, err := s.Storage.ClientToClientGet(id)
+	if err != nil {
+		if err.Error() != "Client not found" {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			w.Write([]byte(err.Error() + " - ClientToClientGet"))
+			return
+		}
+		clientToClients = &pb.ClientConnectionList{}
+	}
+	ctcData, err := protojson.Marshal(clientToClients)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.Write([]byte(err.Error() + " - protojson.Marshal(clientToClients)"))
+		return
+	}
+
+	_, hasStream := s.ClientService.ClientStreams[id]
+
+	response := struct {
+		HasOpenStream bool            `json:"hasOpenStream"`
+		Client        json.RawMessage `json:"client"`
+		Connections   json.RawMessage `json:"connections"`
+	}{
+		HasOpenStream: hasStream,
+		Client:        clientData,
+		Connections:   ctcData,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (s *SimulationEngine) GetClientStatus(w http.ResponseWriter, req *http.Request) {
