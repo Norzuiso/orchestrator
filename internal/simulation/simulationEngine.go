@@ -124,7 +124,7 @@ func NewSimulationEngine(seed int64) *SimulationEngine {
 	s.ClientService = clientService
 	s.Orchestrator = orch
 
-	s.ClientService.LogStorage.OpenDb("log.db")
+	s.ClientService.LogStorage.OpenDb("log-One-Simulation.db")
 
 	s.StateWaitingConnections = NewStateWaitingConnections(s)
 	s.StateAwaitingClientStatus = NewStateAwaitingClientStatus(s)
