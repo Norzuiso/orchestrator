@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"maps"
 	"net/http"
 	"slices"
@@ -57,11 +58,41 @@ func (s *SimulationEngine) HttpConnect() {
 	mux.HandleFunc("GET /simulation/next-phase", s.NextStateHttp) // TODO
 	mux.HandleFunc("GET /simulation/next-epoch", s.NextEpoch)
 
+	// Logs
+	mux.HandleFunc("/logs/stream", s.StreamLogs)
+
 	err := http.ListenAndServe(":8090", corsMiddleware(mux)) // TODO - Port Get it from config
 
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (s *SimulationEngine) StreamLogs(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Not supported streaming", http.StatusInternalServerError)
+		return
+	}
+
+	for {
+		select {
+		case <-req.Context().Done():
+			return
+		case l := <-s.LogChannel:
+			log.Println(l)
+			fmt.Fprintf(w, "data: %s\n\n", l)
+			flusher.Flush()
+		}
+	}
+}
+
+func (s *SimulationEngine) Write(str string) {
+	s.LogChannel <- str
 }
 
 func (s *SimulationEngine) GetActiveClients(w http.ResponseWriter, req *http.Request) {
@@ -295,9 +326,9 @@ func (s *SimulationEngine) StartSimulation(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	s.Orchestrator.Epoch = (init - 1)
+	s.Orchestrator.Epoch = init
 	s.Orchestrator.MaxOfEpochs = end
-	s.Orchestrator.Seed = rBody.Seed
+	s.Orchestrator.SetSeed(rBody.Seed)
 	s.Orchestrator.StepsMode = rBody.StepsMode
 	if _, err := fmt.Fprintf(w, "Simulation started."); err != nil {
 		return

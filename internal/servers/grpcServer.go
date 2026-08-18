@@ -22,6 +22,7 @@ type ClientToClientService struct {
 	StateProvider   utils.StateProvider
 	StorageProvider utils.StorageProvider
 	LogStorage      *storage.LogStorage
+	LogsProvider    utils.LogsProvider
 }
 
 func NewClientToClientService(o *orchestrator.Orchestrator) *ClientToClientService {
@@ -104,13 +105,18 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 				return
 			}
 
-			if err := c.validateMsgTypeOnState(msg); err != nil {
-				done := make(chan error, 1)
-				conn.Outbox <- models.OutboxItem{Msg: utils.BuildPhaseErrorMsg(msg, err), Done: done}
-				<-done
-				continue
+			for {
+				if err := c.validateMsgTypeOnState(msg); err == nil {
+					break
+				}
+				select {
+				case <-c.StateProvider.StateChangedChan():
+					continue
+				case <-stream.Context().Done():
+					return
+				}
 			}
-			log.Println("Read: ", msg)
+			c.LogsProvider.WriteLogs(fmt.Sprint("Read: ", msg))
 			err = c.LogStorage.LogMessage("Read", msg, c.StateProvider.GetCurrentState().GetStateName())
 			if err != nil {
 				log.Println(err)
@@ -134,7 +140,7 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 				c.ClientStreams[senderId].ErrCh <- err
 				return
 			}
-			log.Println("Send: ", item.Msg)
+			c.LogsProvider.WriteLogs(fmt.Sprint("Send: ", item.Msg))
 			err = c.LogStorage.LogMessage("Send", item.Msg, c.StateProvider.GetCurrentState().GetStateName())
 
 			if err != nil {
@@ -147,6 +153,8 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 	select {
 	// Detect close connection
 	case <-ctx.Done():
+		c.LogsProvider.WriteLogs(fmt.Sprint("Stream closed: ", &pb.Message{SenderId: senderId, Content: ctx.Err().Error()}))
+
 		err = c.LogStorage.LogMessage("Stream closed", &pb.Message{SenderId: senderId, Content: ctx.Err().Error()}, c.StateProvider.GetCurrentState().GetStateName())
 		if err != nil {
 			log.Println(err)

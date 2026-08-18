@@ -16,4 +16,5 @@ type State interface {
 
 type StateProvider interface {
 	GetCurrentState() State
+	StateChangedChan() <-chan struct{}
 }
