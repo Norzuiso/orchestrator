@@ -22,7 +22,7 @@ func (s *StateRequestingEvents) GetStateName() string {
 }
 
 func (s *StateRequestingEvents) ReadMsg(msg *pb.Message, conn *models.Connection) error {
-	return fmt.Errorf("Message not allosit. Orchestrator is not reciving any message")
+	return fmt.Errorf("Orchestrator is not reciving any message")
 }
 
 func (s *StateRequestingEvents) SendMsg(msg *pb.Message, conn *models.Connection) error {

@@ -64,7 +64,9 @@ TODO
 16.3. Check packages, files, functions, var names
 
 17. Add msg response to open stream message type
-
+18. When a new simulation starts using http and the seed is different. The seed on the clients doesn't change
+19. When a new simulation starts it causes phase/state errors because the state no ha cambiado when the client response is processed
+	-> Client: 8 -> Error: MessageType: MESSAGE_TYPE_EVENT_RESPONSE:3 is not allow it. Current state: RequestingEvents
 
 ==================================================
 Errors/BUGS:

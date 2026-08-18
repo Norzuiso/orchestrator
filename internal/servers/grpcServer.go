@@ -83,7 +83,7 @@ func (c *ClientToClientService) validateFirstMsg(msg *pb.Message) error {
 func (c *ClientToClientService) validateMsgTypeOnState(msg *pb.Message) error {
 	// check if msgType is allow it
 	if !c.StateProvider.GetCurrentState().IsMsgTypeAllowIt(msg) {
-		return fmt.Errorf("MessageType: %v:%v is not allow it", msg.MessageType.String(), msg.MessageType.Number())
+		return fmt.Errorf("MessageType: %v:%v is not allow it. Current state: %v", msg.MessageType.String(), msg.MessageType.Number(), c.StateProvider.GetCurrentState().GetStateName())
 	}
 	return nil
 }
