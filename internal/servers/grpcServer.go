@@ -8,6 +8,7 @@ import (
 
 	"github.com/Norzuiso/orchestrator/internal/models"
 	"github.com/Norzuiso/orchestrator/internal/orchestrator"
+	"github.com/Norzuiso/orchestrator/internal/sse"
 	"github.com/Norzuiso/orchestrator/internal/storage"
 	"github.com/Norzuiso/orchestrator/internal/utils"
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
@@ -19,10 +20,11 @@ type ClientToClientService struct {
 	ClientStreams map[int64]*models.Connection // TODO use mux
 	Orchestrator  *orchestrator.Orchestrator
 
-	StateProvider   utils.StateProvider
-	StorageProvider utils.StorageProvider
-	LogStorage      *storage.LogStorage
-	LogsProvider    utils.LogsProvider
+	StateProvider         utils.StateProvider
+	StorageProvider       utils.StorageProvider
+	LogStorage            *storage.LogStorage
+	LogsBroadcaster       *sse.LogsBroadcaster
+	OpenStreamBroadcaster *sse.OpenStreamBroadcaster
 }
 
 func NewClientToClientService(o *orchestrator.Orchestrator) *ClientToClientService {
@@ -115,7 +117,7 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 					return
 				}
 			}
-			c.LogsProvider.WriteLogs(fmt.Sprint("Read: ", msg))
+			c.LogsBroadcaster.Publish(fmt.Sprint("Read: ", msg))
 			err = c.LogStorage.LogMessage("Read", msg, c.StateProvider.GetCurrentState().GetStateName())
 			if err != nil {
 				log.Println(err)
@@ -139,7 +141,7 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 				c.ClientStreams[senderId].ErrCh <- err
 				return
 			}
-			c.LogsProvider.WriteLogs(fmt.Sprint("Send: ", item.Msg))
+			c.LogsBroadcaster.Publish(fmt.Sprint("Send: ", item.Msg))
 			err = c.LogStorage.LogMessage("Send", item.Msg, c.StateProvider.GetCurrentState().GetStateName())
 
 			if err != nil {
@@ -152,8 +154,7 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 	select {
 	// Detect close connection
 	case <-ctx.Done():
-		c.LogsProvider.WriteLogs(fmt.Sprint("Stream closed: ", &pb.Message{SenderId: senderId, Content: ctx.Err().Error()}))
-		c.LogsProvider.WriteClientStream(senderId, false)
+		c.LogsBroadcaster.Publish(fmt.Sprint("Stream closed: ", &pb.Message{SenderId: senderId, Content: ctx.Err().Error()}))
 		err = c.LogStorage.LogMessage("Stream closed", &pb.Message{SenderId: senderId, Content: ctx.Err().Error()}, c.StateProvider.GetCurrentState().GetStateName())
 		if err != nil {
 			log.Println(err)
@@ -164,6 +165,10 @@ func (c *ClientToClientService) ClientToClientMessage(stream pb.Broadcast_Client
 		log.Printf("Sender: %v error. ERR: %v", senderId, ctx.Err())
 
 	}
+	c.OpenStreamBroadcaster.Publish(senderId)                // Send senderID to get client with not open stream
+	c.OpenStreamBroadcaster.RemoveWhere(func(i int64) bool { // Remove the id from history to prevent multiple appear when there are not open streams for client
+		return senderId == i
+	})
 
 	return nil
 }
@@ -190,12 +195,13 @@ func openStream(stream pb.Broadcast_ClientToClientMessageServer, c *ClientToClie
 		Seed:        c.Orchestrator.GetClientSeed(senderId),
 	}
 	stream.Send(msgResponse)
-	c.LogsProvider.WriteClientStream(senderId, true)
 
 	c.ClientStreams[senderId].ErrCh = make(chan error, 2)
 	err = c.LogStorage.LogMessage("Stream open", msgResponse, c.StateProvider.GetCurrentState().GetStateName())
 	if err != nil {
 		log.Println(err)
 	}
+	c.LogsBroadcaster.Publish(fmt.Sprint("Stream open: ", msg))
+	c.OpenStreamBroadcaster.Publish(senderId)
 	return senderId, conn, nil
 }

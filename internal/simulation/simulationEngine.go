@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/Norzuiso/orchestrator/internal/models"
+	"github.com/Norzuiso/orchestrator/internal/sse"
 	"github.com/Norzuiso/orchestrator/internal/storage"
 	pb "github.com/Norzuiso/protocol/gen/go/proto/orchestrator/v1"
 
@@ -34,10 +35,11 @@ type SimulationEngine struct {
 
 	CurrentState utils.State
 
-	mu                sync.Mutex
-	StateChanged      chan struct{}
-	LogChannel        chan string
-	OpenStreamChannel chan *models.ClientInfo
+	mu           sync.Mutex
+	StateChanged chan struct{}
+
+	LogsBroadcaster       *sse.LogsBroadcaster
+	OpenStreamBroadcaster *sse.OpenStreamBroadcaster
 }
 
 func (s *SimulationEngine) EndEpoch() {
@@ -55,7 +57,7 @@ func (s *SimulationEngine) StartEpoch() {
 	}
 
 	s.Orchestrator.NextEpoch()
-	s.LogChannel <- fmt.Sprintf("StartEpoch: %v", s.Orchestrator.SeedEpoch)
+	s.LogsBroadcaster.Publish(fmt.Sprintf("StartEpoch: %v", s.Orchestrator.SeedEpoch))
 	s.CurrentState = s.StateRequestingEvents
 	s.CurrentState.StartState()
 }
@@ -83,20 +85,6 @@ func (s *SimulationEngine) StateChangedChan() <-chan struct{} {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.StateChanged
-}
-
-func (s *SimulationEngine) WriteLogs(str string) {
-	s.LogChannel <- str
-}
-
-func (s *SimulationEngine) WriteClientStream(clientId int64, isActive bool) {
-	res, err := s.GetClientInfo(clientId)
-	res.HasOpenStream = isActive
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	s.OpenStreamChannel <- res
 }
 
 func (s *SimulationEngine) GrpcConnect() {
@@ -140,19 +128,20 @@ func NewSimulationEngine(seed int64) *SimulationEngine {
 	s := &SimulationEngine{}
 	s.Storage = &storage.Storage{}
 	s.Storage.OpenDb("my.db")
-	s.LogChannel = make(chan string, 10)
-	s.OpenStreamChannel = make(chan *models.ClientInfo, 10)
+	s.LogsBroadcaster = sse.NewBroadcaster[string](100, 10)
+	s.OpenStreamBroadcaster = sse.NewBroadcaster[int64](100, 10)
 	s.StateChanged = make(chan struct{})
 
 	// Orchestrator
 	orch := orchestrator.NewOrquestrator(seed)
 	clientService := &servers.ClientToClientService{
-		ClientStreams:   make(map[int64]*models.Connection),
-		Orchestrator:    orch,
-		StateProvider:   s,
-		StorageProvider: s.Storage,
-		LogStorage:      &storage.LogStorage{},
-		LogsProvider:    s,
+		ClientStreams:         make(map[int64]*models.Connection),
+		Orchestrator:          orch,
+		StateProvider:         s,
+		StorageProvider:       s.Storage,
+		LogStorage:            &storage.LogStorage{},
+		LogsBroadcaster:       s.LogsBroadcaster,
+		OpenStreamBroadcaster: s.OpenStreamBroadcaster,
 	}
 	s.ClientService = clientService
 	s.Orchestrator = orch
