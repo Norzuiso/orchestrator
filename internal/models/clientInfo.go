@@ -7,3 +7,11 @@ type ClientInfo struct {
 	Client        json.RawMessage `json:"client"`
 	Connections   json.RawMessage `json:"connections"`
 }
+
+func (c *ClientInfo) String() string {
+	jsonClient, err := json.Marshal(c)
+	if err != nil {
+		return err.Error()
+	}
+	return string(jsonClient)
+}

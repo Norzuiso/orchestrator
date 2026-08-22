@@ -34,9 +34,10 @@ type SimulationEngine struct {
 
 	CurrentState utils.State
 
-	mu           sync.Mutex
-	StateChanged chan struct{}
-	LogChannel   chan string
+	mu                sync.Mutex
+	StateChanged      chan struct{}
+	LogChannel        chan string
+	OpenStreamChannel chan *models.ClientInfo
 }
 
 func (s *SimulationEngine) EndEpoch() {
@@ -88,6 +89,16 @@ func (s *SimulationEngine) WriteLogs(str string) {
 	s.LogChannel <- str
 }
 
+func (s *SimulationEngine) WriteClientStream(clientId int64, isActive bool) {
+	res, err := s.GetClientInfo(clientId)
+	res.HasOpenStream = isActive
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	s.OpenStreamChannel <- res
+}
+
 func (s *SimulationEngine) GrpcConnect() {
 	// GRPC server logging
 	// logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -130,6 +141,7 @@ func NewSimulationEngine(seed int64) *SimulationEngine {
 	s.Storage = &storage.Storage{}
 	s.Storage.OpenDb("my.db")
 	s.LogChannel = make(chan string, 10)
+	s.OpenStreamChannel = make(chan *models.ClientInfo, 10)
 	s.StateChanged = make(chan struct{})
 
 	// Orchestrator

@@ -60,11 +60,34 @@ func (s *SimulationEngine) HttpConnect() {
 
 	// Logs
 	mux.HandleFunc("/logs/stream", s.StreamLogs)
+	mux.HandleFunc("/client/open-streams/stream", s.StreamOpenStreamsClients)
 
 	err := http.ListenAndServe(":8090", corsMiddleware(mux)) // TODO - Port Get it from config
 
 	if err != nil {
 		panic(err)
+	}
+}
+
+func (s *SimulationEngine) StreamOpenStreamsClients(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Connection", "keep-alive")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Not supported streaming", http.StatusInternalServerError)
+		return
+	}
+
+	for {
+		select {
+		case <-req.Context().Done():
+			return
+		case l := <-s.OpenStreamChannel:
+			fmt.Fprintf(w, "data: %s\n\n", l.String())
+			flusher.Flush()
+		}
 	}
 }
 
