@@ -124,6 +124,11 @@ func (o *Orchestrator) NextEpoch() {
 	o.generateSeedEpoch()
 }
 
+func (o *Orchestrator) SetSeed(seed int64) {
+	o.Seed = seed
+	o.generateSeedEpoch()
+}
+
 func (o *Orchestrator) generateSeedEpoch() {
 	seedStr := strconv.FormatInt(o.Seed, 10)
 	epochStr := strconv.FormatInt(o.Epoch, 10)

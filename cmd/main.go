@@ -46,8 +46,18 @@ TODO
 13. Http function to next epoch
 14. Http function to next phase
 
+17. Add msg response to open stream message type
 
 18. Create http function to get all client info (id, name, seed, description, client-to-client connections) by id
+18. When a new simulation starts using http and the seed is different. The seed on the clients doesn't change
+
+19. When a new simulation starts it causes phase/state errors because the state no ha cambiado when the client response is processed
+	-> Client: 8 -> Error: MessageType: MESSAGE_TYPE_EVENT_RESPONSE:3 is not allow it. Current state: RequestingEvents
+	<- Solved it implementing a channel to indicate an phase change. When te msg is not allow it, we wait until the correct phase/state
+
+20. Add a way to send logs to fromt without websockets <- solve it using http.Flush and a channel to store the logs as strings
+21. Send client info in realtime when a stream get open or close.
+
 ==================================================
 
 6. Http function to get System status
@@ -62,11 +72,6 @@ TODO
 16.1. Check responses
 16.2. Check error msgs
 16.3. Check packages, files, functions, var names
-
-17. Add msg response to open stream message type
-18. When a new simulation starts using http and the seed is different. The seed on the clients doesn't change
-19. When a new simulation starts it causes phase/state errors because the state no ha cambiado when the client response is processed
-	-> Client: 8 -> Error: MessageType: MESSAGE_TYPE_EVENT_RESPONSE:3 is not allow it. Current state: RequestingEvents
 
 ==================================================
 Errors/BUGS:

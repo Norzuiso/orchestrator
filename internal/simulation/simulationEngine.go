@@ -33,6 +33,11 @@ type SimulationEngine struct {
 	StateWaitingConnections     utils.State
 
 	CurrentState utils.State
+
+	mu                sync.Mutex
+	StateChanged      chan struct{}
+	LogChannel        chan string
+	OpenStreamChannel chan *models.ClientInfo
 }
 
 func (s *SimulationEngine) EndEpoch() {
@@ -50,7 +55,7 @@ func (s *SimulationEngine) StartEpoch() {
 	}
 
 	s.Orchestrator.NextEpoch()
-	s.ClientService.LogStorage.LogMessage(fmt.Sprintf("StartEpoch: %v", s.Orchestrator.SeedEpoch), &pb.Message{Epoch: s.Orchestrator.Epoch}, fmt.Sprintf("StartEpoch: %v", s.Orchestrator.SeedEpoch))
+	s.LogChannel <- fmt.Sprintf("StartEpoch: %v", s.Orchestrator.SeedEpoch)
 	s.CurrentState = s.StateRequestingEvents
 	s.CurrentState.StartState()
 }
@@ -62,12 +67,36 @@ func (s *SimulationEngine) GetCurrentState() utils.State {
 func (s *SimulationEngine) NextState() {
 	s.CurrentState, _ = s.CurrentState.GetNextState()
 	s.CurrentState.StartState()
+	s.mu.Lock()
+	close(s.StateChanged)
+	s.StateChanged = make(chan struct{})
+	s.mu.Unlock()
 }
 
 func (s *SimulationEngine) EndSimulation() {
 	s.CurrentState = s.StateEnd
 	s.CurrentState.StartState()
 
+}
+
+func (s *SimulationEngine) StateChangedChan() <-chan struct{} {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.StateChanged
+}
+
+func (s *SimulationEngine) WriteLogs(str string) {
+	s.LogChannel <- str
+}
+
+func (s *SimulationEngine) WriteClientStream(clientId int64, isActive bool) {
+	res, err := s.GetClientInfo(clientId)
+	res.HasOpenStream = isActive
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	s.OpenStreamChannel <- res
 }
 
 func (s *SimulationEngine) GrpcConnect() {
@@ -111,6 +140,9 @@ func NewSimulationEngine(seed int64) *SimulationEngine {
 	s := &SimulationEngine{}
 	s.Storage = &storage.Storage{}
 	s.Storage.OpenDb("my.db")
+	s.LogChannel = make(chan string, 10)
+	s.OpenStreamChannel = make(chan *models.ClientInfo, 10)
+	s.StateChanged = make(chan struct{})
 
 	// Orchestrator
 	orch := orchestrator.NewOrquestrator(seed)
@@ -120,6 +152,7 @@ func NewSimulationEngine(seed int64) *SimulationEngine {
 		StateProvider:   s,
 		StorageProvider: s.Storage,
 		LogStorage:      &storage.LogStorage{},
+		LogsProvider:    s,
 	}
 	s.ClientService = clientService
 	s.Orchestrator = orch
