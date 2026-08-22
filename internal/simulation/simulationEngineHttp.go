@@ -71,7 +71,7 @@ func (s *SimulationEngine) HttpConnect() {
 
 func (s *SimulationEngine) StreamOpenStreamsClients(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
 	flusher, ok := w.(http.Flusher)
@@ -80,12 +80,27 @@ func (s *SimulationEngine) StreamOpenStreamsClients(w http.ResponseWriter, req *
 		return
 	}
 
+	log.Println("Open stream to streams clients")
+	s.OpenStreamBroadcaster.RemoveOutput()
+	for _, line := range s.OpenStreamBroadcaster.GetHistory() {
+		clientInfo, err := s.GetClientInfo(line)
+		if err != nil {
+			return
+		}
+		fmt.Fprintf(w, "data: %s\n\n", clientInfo.String())
+	}
+	flusher.Flush()
+
 	for {
 		select {
 		case <-req.Context().Done():
 			return
-		case l := <-s.OpenStreamChannel:
-			fmt.Fprintf(w, "data: %s\n\n", l.String())
+		case l := <-s.OpenStreamBroadcaster.Subscribe():
+			clientInfo, err := s.GetClientInfo(l)
+			if err != nil {
+				return
+			}
+			fmt.Fprintf(w, "data: %s\n\n", clientInfo.String())
 			flusher.Flush()
 		}
 	}
@@ -102,20 +117,21 @@ func (s *SimulationEngine) StreamLogs(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
+	for _, line := range s.LogsBroadcaster.GetHistory() {
+		fmt.Fprintf(w, "data: %s\n\n", line)
+	}
+	flusher.Flush()
+
 	for {
 		select {
 		case <-req.Context().Done():
 			return
-		case l := <-s.LogChannel:
+		case l := <-s.LogsBroadcaster.Subscribe():
 			log.Println(l)
 			fmt.Fprintf(w, "data: %s\n\n", l)
 			flusher.Flush()
 		}
 	}
-}
-
-func (s *SimulationEngine) Write(str string) {
-	s.LogChannel <- str
 }
 
 func (s *SimulationEngine) GetActiveClients(w http.ResponseWriter, req *http.Request) {
